@@ -1,0 +1,76 @@
+component HubPreview
+
+state
+  products: [
+    { name: "Tylix Deploy", label: "Online", dot: "bg-emerald-500", version: "v0.4.2", seen: "Just now" },
+    { name: "Tylix", label: "Online", dot: "bg-emerald-500", version: "v0.1.0", seen: "1 min ago" }
+  ]
+  events: [
+    { type: "deploy.succeeded", badge: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", product: "Tylix Deploy", message: "Release shipped", when: "2 min ago" },
+    { type: "server.unreachable", badge: "bg-rose-500/10 text-rose-700 dark:text-rose-300", product: "Tylix Deploy", message: "No response from server", when: "1 h ago" },
+    { type: "server.recovered", badge: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", product: "Tylix Deploy", message: "Back online", when: "1 h ago" }
+  ]
+  releases: [
+    { product: "Tylix Deploy", version: "0.4.2", category: "added", categoryClass: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300", stateText: "Published", stateClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", title: "Docker sites, one-click deploys" },
+    { product: "Tylix", version: "0.1.0", category: "improved", categoryClass: "bg-sky-500/10 text-sky-700 dark:text-sky-300", stateText: "Scheduled", stateClass: "bg-amber-500/10 text-amber-700 dark:text-amber-300", title: "Faster hot reload" },
+    { product: "Tylix Deploy", version: "0.4.1", category: "fixed", categoryClass: "bg-teal-500/10 text-teal-700 dark:text-teal-300", stateText: "Draft", stateClass: "bg-slate-500/10 text-slate-600 dark:text-slate-400", title: "Server logs page" }
+  ]
+
+template
+  <section class="border-t border-slate-200 dark:border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+        <div>
+          <h2 class="text-sm font-semibold mb-3">Status</h2>
+          <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden mb-6">
+{{#each p in products}}
+            <div class="flex items-center gap-4 px-5 py-4 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0 {{ p.dot }}"></span>
+              <div class="min-w-0 flex-1">
+                <p class="font-medium truncate">{{ p.name }}</p>
+                <p class="text-xs text-slate-500 mt-0.5">{{ p.label }}</p>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ p.version }}</p>
+                <p class="text-xs text-slate-500 mt-0.5">Last seen: {{ p.seen }}</p>
+              </div>
+            </div>
+{{/each}}
+          </section>
+
+          <h2 class="text-sm font-semibold mb-3">Recent events</h2>
+          <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
+{{#each e in events}}
+            <div class="flex items-start gap-4 px-5 py-3 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
+              <span class="rounded px-1.5 py-0.5 text-[11px] font-medium shrink-0 {{ e.badge }}">{{ e.type }}</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm"><span class="font-medium">{{ e.product }}</span> · {{ e.message }}</p>
+              </div>
+              <span class="text-xs text-slate-500 shrink-0">{{ e.when }}</span>
+            </div>
+{{/each}}
+          </section>
+        </div>
+
+        <div>
+          <h2 class="text-sm font-semibold mb-3">Changelog</h2>
+          <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
+{{#each r in releases}}
+            <div class="px-5 py-4 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+                <span class="text-sm font-medium">{{ r.product }}</span>
+                <span class="font-mono text-xs text-slate-500">v{{ r.version }}</span>
+                <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {{ r.categoryClass }}">{{ r.category }}</span>
+                <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {{ r.stateClass }}">{{ r.stateText }}</span>
+              </div>
+              <p class="text-sm text-slate-800 dark:text-slate-200">{{ r.title }}</p>
+            </div>
+{{/each}}
+          </section>
+          <p class="text-xs text-slate-500 mt-3">Example data. Your real products and releases show up on the Status and Changelog pages.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>

@@ -8,7 +8,8 @@
 import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { User } from "../models/User.js";
 
-function admins(): string[] {
+/** The lowercased emails listed in HUB_ADMINS. */
+export function hubAdminEmails(): string[] {
     return (process.env.HUB_ADMINS ?? "")
         .split(",")
         .map((email) => email.trim().toLowerCase())
@@ -19,7 +20,7 @@ function admins(): string[] {
 export async function requireHubAdmin(req: TylixRequest, res: TylixResponse): Promise<boolean> {
     const user = await User.find(req.user?.userId as number);
 
-    if (!user || !User.isEmailVerified(user) || !admins().includes(String(user.email).toLowerCase())) {
+    if (!user || !User.isEmailVerified(user) || !hubAdminEmails().includes(String(user.email).toLowerCase())) {
         res.status(403);
         res.json({ error: "You don't have access to the Hub admin." });
         return false;

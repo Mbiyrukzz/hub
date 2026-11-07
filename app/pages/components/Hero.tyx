@@ -1,52 +1,27 @@
 component Hero
 
-import { IconArrowRight } from "tylix-icons"
-
 props
   loggedIn: boolean
-  hasAuth: boolean
-  hasPosts: boolean
 
 template
-  <section class="border-b border-zinc-200 dark:border-zinc-800">
-    <div class="max-w-4xl mx-auto px-6 pt-24 pb-20 text-center">
-      <p class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-8">
+  <section>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-12">
+      <p class="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 mb-6">
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-        v0.1 &mdash; now with hot reload
+        Tylix Hub
       </p>
 
-      <h1 class="text-5xl md:text-6xl font-semibold tracking-tight leading-[1.05] mb-6">
-        Full-stack JavaScript,
-        <br />
-        <span class="text-emerald-500">without the virtual DOM</span>
-      </h1>
+      <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight max-w-2xl">Release notes and uptime for every Tylix product</h1>
+      <p class="text-slate-500 mt-3 max-w-xl leading-relaxed">Write a changelog entry once and publish it to every connected site. Watch each product's heartbeat from one page.</p>
 
-      <p class="text-lg text-zinc-500 dark:text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
-        A reactive compiler, a generator-first CLI and a database-agnostic ORM,
-        wired together so you write pages, not plumbing.
-      </p>
-
-      <div class="flex items-center justify-center gap-3">
+      <div class="flex flex-wrap items-center gap-2 mt-8">
 {{#if loggedIn}}
-        <a href="/dashboard" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-emerald-500 text-white dark:text-zinc-950 text-sm font-semibold hover:bg-emerald-400 transition-colors">
-          Go to Dashboard
-          <IconArrowRight class="w-4 h-4" />
-        </a>
-{{#else if hasAuth}}
-        <a href="/register" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-emerald-500 text-white dark:text-zinc-950 text-sm font-semibold hover:bg-emerald-400 transition-colors">
-          Get started
-          <IconArrowRight class="w-4 h-4" />
-        </a>
-{{#else}}
-        <a href="https://tylix.dev/docs" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-emerald-500 text-white dark:text-zinc-950 text-sm font-semibold hover:bg-emerald-400 transition-colors">
-          Read the docs
-          <IconArrowRight class="w-4 h-4" />
-        </a>
+        <a href="/changelog?new=1" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">New release</a>
+        <a href="/status" class="text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3.5 py-2 hover:bg-white dark:hover:bg-slate-800 transition-colors">View status</a>
 {{/if}}
-{{#if hasPosts}}
-        <a href="/posts" class="px-6 py-2.5 rounded-md border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
-          Browse posts
-        </a>
+{{#if not loggedIn}}
+        <a href="/login" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">Sign in</a>
+        <a href="#how-it-works" class="text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3.5 py-2 hover:bg-white dark:hover:bg-slate-800 transition-colors">How it works</a>
 {{/if}}
       </div>
     </div>

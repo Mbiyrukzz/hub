@@ -58,10 +58,10 @@ action
   }
 
   eventBadge(type) {
-    if type is "deploy.succeeded" or type is "server.recovered" {
+    if type is "deploy.succeeded" or type is "server.recovered" or type is "product.recovered" {
       return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
     }
-    if type is "deploy.failed" or type is "server.unreachable" {
+    if type is "deploy.failed" or type is "server.unreachable" or type is "product.down" {
       return "bg-rose-500/10 text-rose-700 dark:text-rose-300"
     }
     return "bg-slate-500/10 text-slate-600 dark:text-slate-400"

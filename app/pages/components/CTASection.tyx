@@ -1,35 +1,31 @@
 component CTASection
 
-import { IconArrowRight } from "tylix-icons"
-
 props
   loggedIn: boolean
-  hasAuth: boolean
 
 template
-  <section class="border-t border-zinc-200 dark:border-zinc-800">
-    <div class="max-w-3xl mx-auto px-6 py-24 text-center">
+  <section class="border-t border-slate-200 dark:border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
 {{#if loggedIn}}
-      <h2 class="text-4xl font-semibold tracking-tight mb-4">Keep building</h2>
-      <p class="text-zinc-500 dark:text-zinc-400 mb-8 max-w-md mx-auto">Jump back into your dashboard to manage your posts and features.</p>
-      <a href="/dashboard" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-emerald-500 text-white dark:text-zinc-950 text-sm font-semibold hover:bg-emerald-400 transition-colors">
-        Go to Dashboard
-        <IconArrowRight class="w-4 h-4" />
-      </a>
-{{#else if hasAuth}}
-      <h2 class="text-4xl font-semibold tracking-tight mb-4">Ready to build something real?</h2>
-      <p class="text-zinc-500 dark:text-zinc-400 mb-8 max-w-md mx-auto">Auth, database and styling included, in under a minute.</p>
-      <a href="/register" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-emerald-500 text-white dark:text-zinc-950 text-sm font-semibold hover:bg-emerald-400 transition-colors">
-        Get started for free
-        <IconArrowRight class="w-4 h-4" />
-      </a>
-{{#else}}
-      <h2 class="text-4xl font-semibold tracking-tight mb-4">Ready to build something real?</h2>
-      <p class="text-zinc-500 dark:text-zinc-400 mb-8 max-w-md mx-auto">Open the docs and add your first page.</p>
-      <a href="https://tylix.dev/docs" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-emerald-500 text-white dark:text-zinc-950 text-sm font-semibold hover:bg-emerald-400 transition-colors">
-        Read the docs
-        <IconArrowRight class="w-4 h-4" />
-      </a>
+        <div>
+          <h2 class="text-lg font-semibold tracking-tight">Ready to publish a release?</h2>
+          <p class="text-sm text-slate-500 mt-1 max-w-md">Write it once and it goes out to every connected site.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <a href="/changelog?new=1" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">New release</a>
+          <a href="/products?new=1" class="text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3.5 py-2 hover:bg-white dark:hover:bg-slate-800 transition-colors">Add a product</a>
+        </div>
 {{/if}}
+{{#if not loggedIn}}
+        <div>
+          <h2 class="text-lg font-semibold tracking-tight">Sign in to the Hub</h2>
+          <p class="text-sm text-slate-500 mt-1 max-w-md">Access is limited to accounts listed in HUB_ADMINS with a verified email.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <a href="/login" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">Sign in</a>
+        </div>
+{{/if}}
+      </div>
     </div>
   </section>

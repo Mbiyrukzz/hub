@@ -1,25 +1,24 @@
 page Home
 
 import Hero from "./components/Hero"
-import InstallSnippet from "./components/InstallSnippet"
-import Stats from "./components/Stats"
+import HubPreview from "./components/HubPreview"
 import FeatureGrid from "./components/FeatureGrid"
 import HowItWorks from "./components/HowItWorks"
-import LatestPosts from "./components/LatestPosts"
 import CTASection from "./components/CTASection"
 
-title "Tylix"
+title "Tylix Hub"
 
-uses
+needs
   Auth
+
+meta
+  transition "fade"
 
 template
   <div>
-    <Hero loggedIn="{{ Auth.user }}" hasAuth="{{ true }}" hasPosts="{{ true }}" />
-    <Stats />
+    <Hero loggedIn="{{ Auth.user }}" />
+    <HubPreview />
     <FeatureGrid />
-    <InstallSnippet />
     <HowItWorks />
-    <LatestPosts />
-    <CTASection loggedIn="{{ Auth.user }}" hasAuth="{{ true }}" />
+    <CTASection loggedIn="{{ Auth.user }}" />
   </div>

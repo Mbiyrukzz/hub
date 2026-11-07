@@ -1,0 +1,459 @@
+page Announcements
+
+title "Announcements"
+
+needs
+  Auth
+
+meta
+  transition "fade"
+
+state
+  checkedAuth: false
+  forbidden: false
+  loading: true
+  listError: ""
+  products: []
+  entries: []
+  phaseTabs: []
+  kinds: ["info", "maintenance", "incident"]
+  statuses: ["draft", "published"]
+  filterProduct: 0
+  filterPhase: "all"
+  chipOn: "px-3 py-1 rounded-full text-sm bg-indigo-600 text-white"
+  chipOff: "px-3 py-1 rounded-full text-sm border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors"
+  editorOpen: false
+  editingId: 0
+  fProduct: 0
+  fKind: "info"
+  fStatus: "draft"
+  fTitle: ""
+  fBody: ""
+  fStarts: ""
+  fEnds: ""
+  errors: {}
+  formError: ""
+  saving: false
+
+computed
+  visible() {
+    return this.entries.filter((e) => (this.filterProduct is 0 or e.product_id is this.filterProduct or e.product_id is 0) and (this.filterPhase is "all" or e.phase is this.filterPhase))
+  }
+
+action
+  setField(field, value) {
+    this[field] = value
+  }
+
+  setFilter(field, value) {
+    this[field] = value
+  }
+
+  errorsOf(raw) {
+    return Object.fromEntries(Object.keys(raw).map((k) => [k, raw[k][0]]))
+  }
+
+  phaseText(p) {
+    if p is "active" {
+      return "Active"
+    }
+    if p is "upcoming" {
+      return "Upcoming"
+    }
+    if p is "ended" {
+      return "Ended"
+    }
+    return "Draft"
+  }
+
+  phaseBadge(p) {
+    if p is "active" {
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+    }
+    if p is "upcoming" {
+      return "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+    }
+    return "bg-slate-500/10 text-slate-600 dark:text-slate-400"
+  }
+
+  kindBadge(kind) {
+    if kind is "incident" {
+      return "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+    }
+    if kind is "maintenance" {
+      return "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+    }
+    return "bg-sky-500/10 text-sky-700 dark:text-sky-300"
+  }
+
+  whenText(value) {
+    if not value {
+      return ""
+    }
+    const d = new Date(value)
+    const day = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+    return day + ", " + time
+  }
+
+  rangeText(e) {
+    const startText = this.whenText(e.starts_at)
+    const endText = this.whenText(e.ends_at)
+    if startText and endText {
+      return startText + " to " + endText
+    }
+    if startText {
+      return "From " + startText + ", no end set"
+    }
+    return "Not started"
+  }
+
+  // The value a datetime-local input expects, in the browser's own timezone.
+  toLocalInput(iso) {
+    if not iso {
+      return ""
+    }
+    const d = new Date(iso)
+    const pad = (n) => (n < 10 ? "0" + n : "" + n)
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes())
+  }
+
+  decorate(e, prods) {
+    const owner = prods.find((p) => p.id is e.product_id)
+    return Object.assign({}, e, {
+      productName: e.product_id is 0 ? "All products" : (owner ? owner.name : "Unknown product"),
+      phaseLabel: this.phaseText(e.phase),
+      phaseClass: this.phaseBadge(e.phase),
+      kindClass: this.kindBadge(e.kind),
+      rangeLabel: this.rangeText(e),
+      preview: String(e.body).replace(/\n/g, " ").slice(0, 140)
+    })
+  }
+
+  resetForm() {
+    this.fProduct = this.filterProduct is 0 ? (this.products.length > 0 ? this.products[0].id : 0) : this.filterProduct
+    this.fKind = "info"
+    this.fStatus = "draft"
+    this.fTitle = ""
+    this.fBody = ""
+    this.fStarts = ""
+    this.fEnds = ""
+    this.errors = {}
+    this.formError = ""
+  }
+
+  openNew() {
+    this.resetForm()
+    this.editingId = 0
+    this.editorOpen = true
+  }
+
+  openEdit(e) {
+    this.resetForm()
+    this.editingId = e.id
+    this.fProduct = e.product_id
+    this.fKind = e.kind
+    this.fStatus = e.status
+    this.fTitle = e.title
+    this.fBody = e.body
+    this.fStarts = this.toLocalInput(e.starts_at)
+    this.fEnds = this.toLocalInput(e.ends_at)
+    this.editorOpen = true
+  }
+
+  closeEditor() {
+    this.editorOpen = false
+    this.editingId = 0
+    this.resetForm()
+  }
+
+  async load() {
+    const results = await Promise.all([
+      useApi("/api/admin/products"),
+      useApi("/api/admin/announcements")
+    ])
+    const productRes = results[0]
+    const entryRes = results[1]
+
+    if productRes.status is 403 or entryRes.status is 403 {
+      this.forbidden = true
+      return null
+    }
+    if not productRes.ok or not entryRes.ok {
+      this.listError = "Couldn't load the announcements."
+      return null
+    }
+
+    this.products = productRes.data
+    this.entries = entryRes.data.map((e) => this.decorate(e, productRes.data))
+    this.listError = ""
+  }
+
+  async save() {
+    if this.saving {
+      return null
+    }
+
+    this.saving = true
+    this.errors = {}
+    this.formError = ""
+
+    const isNew = this.editingId is 0
+    const body = {
+      product_id: this.fProduct,
+      kind: this.fKind,
+      title: this.fTitle,
+      body: this.fBody,
+      status: this.fStatus,
+      starts_at: this.fStarts ? new Date(this.fStarts).toISOString() : "",
+      ends_at: this.fEnds ? new Date(this.fEnds).toISOString() : ""
+    }
+    const path = isNew ? "/api/admin/announcements" : "/api/admin/announcements/" + this.editingId
+    const result = await useApi(path, { method: isNew ? "POST" : "PUT", body: body })
+
+    this.saving = false
+
+    if result.ok {
+      this.closeEditor()
+      await this.load()
+      return null
+    }
+
+    const raw = result.data?.errors
+    if raw {
+      this.errors = this.errorsOf(raw)
+    } else {
+      this.formError = result.data?.error ?? result.error ?? "Could not save the announcement."
+    }
+  }
+
+  async resolve(e) {
+    if not confirm("End \"" + e.title + "\" now?") {
+      return null
+    }
+
+    this.listError = ""
+    const result = await useApi("/api/admin/announcements/" + e.id + "/resolve", { method: "POST", body: {} })
+
+    if result.ok {
+      await this.load()
+    } else {
+      this.listError = result.data?.error ?? result.error ?? "Could not end the announcement."
+    }
+  }
+
+  async remove(e) {
+    if not confirm("Delete \"" + e.title + "\"?") {
+      return null
+    }
+
+    this.listError = ""
+    const result = await useApi("/api/admin/announcements/" + e.id, { method: "DELETE" })
+
+    if result.ok {
+      if this.editingId is e.id {
+        this.closeEditor()
+      }
+      await this.load()
+    } else {
+      this.listError = result.data?.error ?? result.error ?? "Could not delete the announcement."
+    }
+  }
+
+onMount
+  async {
+    if not Auth.user {
+      window.location.href = "/login"
+      return null
+    }
+
+    this.phaseTabs = [
+      { key: "all", label: "All" },
+      { key: "active", label: "Active" },
+      { key: "upcoming", label: "Upcoming" },
+      { key: "draft", label: "Drafts" },
+      { key: "ended", label: "Ended" }
+    ]
+
+    await this.load()
+    this.loading = false
+    this.checkedAuth = true
+
+    if window.location.search.includes("new=1") {
+      this.openNew()
+    }
+  }
+
+template
+{{#if checkedAuth}}
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+{{#if forbidden}}
+    <div class="rounded-xl border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-6">
+      <h1 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">You don't have access to the Hub</h1>
+      <p class="text-sm text-amber-700 dark:text-amber-400">Your account isn't listed in HUB_ADMINS, or its email isn't verified yet.</p>
+    </div>
+{{/if}}
+
+{{#if not forbidden}}
+    <div class="flex items-end justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Announcements</h1>
+        <p class="text-sm text-slate-500 mt-1">Tell every connected site what is happening right now.</p>
+      </div>
+      <button onclick="{{ openNew() }}" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">New announcement</button>
+    </div>
+
+{{#if listError}}
+    <p role="alert" class="text-sm text-rose-600 dark:text-rose-400 mb-4">{{ listError }}</p>
+{{/if}}
+
+{{#if editorOpen}}
+    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 sm:p-6 mb-8">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-sm font-semibold">{{ editingId is 0 ? 'New announcement' : 'Edit announcement' }}</h2>
+        <button onclick="{{ closeEditor() }}" class="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Close</button>
+      </div>
+
+{{#if formError}}
+      <p role="alert" class="rounded-md border border-rose-300 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-sm text-rose-700 dark:text-rose-400 mb-4">{{ formError }}</p>
+{{/if}}
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label for="a-product" class="block text-xs font-medium text-slate-500 mb-1.5">Product</label>
+          <select id="a-product" onchange="{{ setField('fProduct', Number(event.target.value)) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
+            <option value="0" selected="{{ fProduct is 0 }}">All products</option>
+{{#each p in products}}
+            <option value="{{ p.id }}" selected="{{ fProduct is p.id }}">{{ p.name }}</option>
+{{/each}}
+          </select>
+{{#if errors.product_id}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.product_id }}</p>
+{{/if}}
+        </div>
+
+        <div>
+          <label for="a-kind" class="block text-xs font-medium text-slate-500 mb-1.5">Kind</label>
+          <select id="a-kind" onchange="{{ setField('fKind', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm capitalize outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
+{{#each k in kinds}}
+            <option value="{{ k }}" selected="{{ fKind is k }}">{{ k }}</option>
+{{/each}}
+          </select>
+{{#if errors.kind}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.kind }}</p>
+{{/if}}
+        </div>
+
+        <div>
+          <label for="a-status" class="block text-xs font-medium text-slate-500 mb-1.5">Status</label>
+          <select id="a-status" onchange="{{ setField('fStatus', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm capitalize outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
+{{#each s in statuses}}
+            <option value="{{ s }}" selected="{{ fStatus is s }}">{{ s }}</option>
+{{/each}}
+          </select>
+{{#if errors.status}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.status }}</p>
+{{/if}}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label for="a-starts" class="block text-xs font-medium text-slate-500 mb-1.5">Starts at</label>
+          <input id="a-starts" type="datetime-local" value="{{ fStarts }}" oninput="{{ setField('fStarts', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+          <p class="text-xs text-slate-500 mt-1">Leave empty to start as soon as it is published.</p>
+{{#if errors.starts_at}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.starts_at }}</p>
+{{/if}}
+        </div>
+
+        <div>
+          <label for="a-ends" class="block text-xs font-medium text-slate-500 mb-1.5">Ends at</label>
+          <input id="a-ends" type="datetime-local" value="{{ fEnds }}" oninput="{{ setField('fEnds', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+          <p class="text-xs text-slate-500 mt-1">Leave empty for no end. Use Resolve in the list when it is over.</p>
+{{#if errors.ends_at}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.ends_at }}</p>
+{{/if}}
+        </div>
+      </div>
+
+      <label for="a-title" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">Title</label>
+      <input id="a-title" type="text" placeholder="Server provisioning is slower than usual" value="{{ fTitle }}" oninput="{{ setField('fTitle', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+{{#if errors.title}}
+      <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.title }}</p>
+{{/if}}
+
+      <label for="a-body" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">What is happening (Markdown)</label>
+      <textarea id="a-body" rows="6" value="{{ fBody }}" oninput="{{ setField('fBody', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"></textarea>
+{{#if errors.body}}
+      <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.body }}</p>
+{{/if}}
+
+      <div class="flex items-center gap-2 mt-5">
+        <button onclick="{{ save() }}" disabled="{{ saving }}" class="bg-indigo-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ saving ? 'Saving…' : 'Save announcement' }}
+        </button>
+        <button onclick="{{ closeEditor() }}" class="text-sm text-slate-600 dark:text-slate-300 px-3 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Cancel</button>
+      </div>
+    </section>
+{{/if}}
+
+    <div class="flex flex-col gap-3 mb-5">
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="{{ setFilter('filterProduct', 0) }}" class="{{ filterProduct is 0 ? chipOn : chipOff }}">All products</button>
+{{#each p in products}}
+        <button onclick="{{ setFilter('filterProduct', p.id) }}" class="{{ filterProduct is p.id ? chipOn : chipOff }}">{{ p.name }}</button>
+{{/each}}
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+{{#each t in phaseTabs}}
+        <button onclick="{{ setFilter('filterPhase', t.key) }}" class="{{ filterPhase is t.key ? chipOn : chipOff }}">{{ t.label }}</button>
+{{/each}}
+      </div>
+    </div>
+
+    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
+{{#if loading}}
+      <p class="p-6 text-sm text-slate-500">Loading…</p>
+{{/if}}
+
+{{#if not loading}}
+{{#if visible.length is 0}}
+      <div class="p-10 text-center">
+        <h3 class="font-medium mb-1.5">Nothing here</h3>
+        <p class="text-sm text-slate-500">No announcements match these filters.</p>
+      </div>
+{{/if}}
+{{/if}}
+
+{{#each e in visible}}
+      <div class="flex items-start gap-4 px-5 py-4 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+            <span class="text-sm font-medium">{{ e.productName }}</span>
+            <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {{ e.kindClass }}">{{ e.kind }}</span>
+            <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {{ e.phaseClass }}">{{ e.phaseLabel }}</span>
+          </div>
+          <p class="text-sm text-slate-800 dark:text-slate-200">{{ e.title }}</p>
+          <p class="text-xs text-slate-500 mt-1 truncate">{{ e.preview }}</p>
+          <p class="text-xs text-slate-400 mt-1">{{ e.rangeLabel }}</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+{{#if e.phase is "active"}}
+          <button onclick="{{ resolve(e) }}" class="text-sm text-emerald-700 dark:text-emerald-300 px-2.5 py-1 rounded-md hover:bg-emerald-500/10 transition-colors">Resolve</button>
+{{/if}}
+          <button onclick="{{ openEdit(e) }}" class="text-sm text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Edit</button>
+          <button onclick="{{ remove(e) }}" class="text-sm text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 px-2.5 py-1 rounded-md transition-colors">Delete</button>
+        </div>
+      </div>
+{{/each}}
+    </section>
+{{/if}}
+
+  </main>
+{{/if}}
+
+{{#if not checkedAuth}}
+  <p class="px-6 py-16 text-center text-sm text-slate-500">Loading…</p>
+{{/if}}

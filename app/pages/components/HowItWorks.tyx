@@ -2,22 +2,24 @@ component HowItWorks
 
 state
   steps: [
-    { number: "1", name: "Scaffold", command: "npx create-tylix my-app", body: "Answer a few questions about language, database, auth and styling." },
-    { number: "2", name: "Generate", command: "npx tylix make:feature Product", body: "Get a model, migration and CRUD API without writing boilerplate." },
-    { number: "3", name: "Ship", command: "npm run build && npm start", body: "Typechecked pages and a production server, ready to deploy." }
+    { number: "1", name: "Add a product", body: "Every site that reads from the Hub is a product. Give it a name and a slug, then generate its API key.", snippet: "slug: tylix-deploy" },
+    { number: "2", name: "Write a release", body: "Pick a version and category, choose draft, scheduled or published, and describe what changed in Markdown.", snippet: "0.2.0 · added · Docker sites, one-click deploys" },
+    { number: "3", name: "Report status", body: "The product sends a heartbeat every minute. No heartbeat for 3 minutes counts as down.", snippet: "heartbeat every 1 min" }
   ]
 
 template
-  <section class="border-t border-zinc-200 dark:border-zinc-800">
-    <div class="max-w-6xl mx-auto px-6 py-20">
-      <h2 class="text-3xl font-semibold tracking-tight mb-12">From zero to deployed in three commands</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+  <section id="how-it-works" class="border-t border-slate-200 dark:border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+      <h2 class="text-2xl font-semibold tracking-tight">From new product to live status in three steps</h2>
+      <p class="text-sm text-slate-500 mt-1">No extra tooling. Everything is done from the Hub.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
 {{#each s in steps}}
-        <div>
-          <div class="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-sm font-semibold text-emerald-500 mb-4">{{ s.number }}</div>
-          <h3 class="font-semibold tracking-tight mb-2">{{ s.name }}</h3>
-          <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4">{{ s.body }}</p>
-          <code class="block rounded-md bg-zinc-100 dark:bg-zinc-900 px-3 py-2 text-xs font-mono text-zinc-700 dark:text-zinc-300 overflow-x-auto whitespace-nowrap">{{ s.command }}</code>
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5">
+          <div class="w-7 h-7 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-xs font-semibold mb-3">{{ s.number }}</div>
+          <h3 class="text-sm font-semibold mb-1">{{ s.name }}</h3>
+          <p class="text-sm text-slate-500 leading-relaxed mb-4">{{ s.body }}</p>
+          <code class="block rounded-md bg-slate-100 dark:bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] text-slate-700 dark:text-slate-300 overflow-x-auto whitespace-nowrap">{{ s.snippet }}</code>
         </div>
 {{/each}}
       </div>

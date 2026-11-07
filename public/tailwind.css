@@ -633,10 +633,6 @@ video {
   margin-bottom: 2.5rem;
 }
 
-.mb-12 {
-  margin-bottom: 3rem;
-}
-
 .mb-2 {
   margin-bottom: 0.5rem;
 }
@@ -699,6 +695,10 @@ video {
 
 .mt-6 {
   margin-top: 1.5rem;
+}
+
+.mt-8 {
+  margin-top: 2rem;
 }
 
 .line-clamp-2 {
@@ -1015,10 +1015,6 @@ video {
 
 .gap-8 {
   gap: 2rem;
-}
-
-.gap-px {
-  gap: 1px;
 }
 
 .gap-x-2 {
@@ -1367,10 +1363,6 @@ video {
   padding: 1.5rem;
 }
 
-.p-7 {
-  padding: 1.75rem;
-}
-
 .p-8 {
   padding: 2rem;
 }
@@ -1490,8 +1482,8 @@ video {
   padding-bottom: 2rem;
 }
 
-.pb-20 {
-  padding-bottom: 5rem;
+.pb-12 {
+  padding-bottom: 3rem;
 }
 
 .pb-4 {
@@ -1502,8 +1494,8 @@ video {
   padding-left: 1.5rem;
 }
 
-.pt-24 {
-  padding-top: 6rem;
+.pt-16 {
+  padding-top: 4rem;
 }
 
 .text-left {
@@ -1535,11 +1527,6 @@ video {
 .text-4xl {
   font-size: 2.25rem;
   line-height: 2.5rem;
-}
-
-.text-5xl {
-  font-size: 3rem;
-  line-height: 1;
 }
 
 .text-\[11px\] {
@@ -1588,10 +1575,6 @@ video {
 .tabular-nums {
   --tw-numeric-spacing: tabular-nums;
   font-variant-numeric: var(--tw-ordinal) var(--tw-slashed-zero) var(--tw-numeric-figure) var(--tw-numeric-spacing) var(--tw-numeric-fraction);
-}
-
-.leading-\[1\.05\] {
-  line-height: 1.05;
 }
 
 .leading-relaxed {
@@ -1861,6 +1844,10 @@ video {
 .hover\:bg-emerald-400:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(52 211 153 / var(--tw-bg-opacity, 1));
+}
+
+.hover\:bg-emerald-500\/10:hover {
+  background-color: rgb(16 185 129 / 0.1);
 }
 
 .hover\:bg-indigo-500:hover {
@@ -2239,6 +2226,14 @@ video {
     display: inline-flex;
   }
 
+  .sm\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sm\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .sm\:grid-cols-4 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -2251,6 +2246,10 @@ video {
     align-items: flex-end;
   }
 
+  .sm\:items-center {
+    align-items: center;
+  }
+
   .sm\:justify-between {
     justify-content: space-between;
   }
@@ -2259,9 +2258,18 @@ video {
     padding: 1.5rem;
   }
 
+  .sm\:p-8 {
+    padding: 2rem;
+  }
+
   .sm\:px-6 {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
+  }
+
+  .sm\:text-4xl {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
   }
 }
 
@@ -2288,11 +2296,6 @@ video {
 
   .md\:grid-cols-4 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .md\:text-6xl {
-    font-size: 3.75rem;
-    line-height: 1;
   }
 }
 

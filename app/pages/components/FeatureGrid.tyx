@@ -2,27 +2,26 @@ component FeatureGrid
 
 state
   features: [
-    { name: "No virtual DOM", body: "Templates compile to targeted effects. State changes update only the text, attribute or list that depends on them." },
-    { name: "One ORM, four drivers", body: "SQLite, PostgreSQL, MySQL or MongoDB. Pick one in the wizard and change it later in .env." },
-    { name: "Generator-first CLI", body: "tylix make:feature scaffolds a model, migration and full CRUD API in one command." },
-    { name: "Auth included", body: "Register, login, refresh tokens, email verification and password reset, scaffolded when you opt in." },
-    { name: "Instant hot reload", body: "Edit a page or component and see it update in the browser without a manual refresh." },
-    { name: "Readable syntax", body: "Word operators like and, or and not, plus plain if / each blocks in templates." }
+    { tag: "Changelog", badge: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300", title: "Write once, publish everywhere", body: "Draft, schedule or publish a release in Markdown. Every product that reads from the Hub shows it." },
+    { tag: "Status", badge: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", title: "A heartbeat every minute", body: "Products report in once a minute. No heartbeat for 3 minutes counts as down, and deploys and outages appear as events." },
+    { tag: "Products", badge: "bg-sky-500/10 text-sky-700 dark:text-sky-300", title: "One entry per site", body: "Each site that reads from the Hub is a product with its own slug, public API address and a reporting key." },
+    { tag: "Access", badge: "bg-amber-500/10 text-amber-700 dark:text-amber-300", title: "Admins only", body: "Only accounts listed in HUB_ADMINS with a verified email can open the Hub." }
   ]
 
 template
-  <section class="max-w-6xl mx-auto px-6 py-20">
-    <div class="max-w-2xl mb-12">
-      <h2 class="text-3xl font-semibold tracking-tight mb-3">Everything wired up on day one</h2>
-      <p class="text-zinc-500 dark:text-zinc-400">Pick your stack in the wizard and get a working app, not a blank folder.</p>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-px rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
-{{#each f, i in features}}
-      <div class="bg-white dark:bg-zinc-950 p-7">
-        <p class="text-xs font-mono text-emerald-500 mb-4">{{ '0' + (i + 1) }}</p>
-        <h3 class="font-semibold tracking-tight mb-2">{{ f.name }}</h3>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{{ f.body }}</p>
-      </div>
+  <section class="border-t border-slate-200 dark:border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+      <h2 class="text-2xl font-semibold tracking-tight">Everything in one place</h2>
+      <p class="text-sm text-slate-500 mt-1">Releases, uptime and product keys for every site you run.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+{{#each f in features}}
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5">
+          <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {{ f.badge }}">{{ f.tag }}</span>
+          <h3 class="text-sm font-semibold mt-3 mb-1">{{ f.title }}</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">{{ f.body }}</p>
+        </div>
 {{/each}}
+      </div>
     </div>
   </section>

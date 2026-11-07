@@ -6,6 +6,8 @@
  *
  *   GET /api/v1/products
  *   GET /api/v1/products/:slug/changelog?limit=50&category=fixed
+ *   GET /api/v1/products/:slug/status
+ *   GET /api/v1/products/:slug/announcements?phase=active
  *
  * No login. Only live entries of active products are ever returned: drafts,
  * future-scheduled entries and inactive products answer as if they don't
@@ -16,11 +18,16 @@ import { createRateLimiter } from "@tylix/core";
 import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { Product, type ProductAttributes } from "../models/Product.js";
 import { ChangelogEntry, type ChangelogEntryAttributes } from "../models/ChangelogEntry.js";
+import { Announcement, type AnnouncementAttributes } from "../models/Announcement.js";
 import { CATEGORIES } from "../validators/ChangelogValidator.js";
-import { isLive, toPublicEntry } from "../services/ChangelogService.js";
+import { instantOf, isLive, toPublicEntry } from "../services/ChangelogService.js";
+import { publicPhaseOf, toPublicAnnouncement, type PublicPhase } from "../services/AnnouncementService.js";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 
 const limiter = createRateLimiter({ max: 120, windowMs: 60_000 });
+
+const PHASES: readonly PublicPhase[] = ["active", "upcoming", "resolved"];
+const PHASE_ORDER: Record<PublicPhase, number> = { active: 0, upcoming: 1, resolved: 2 };
 
 function clientIp(req: TylixRequest): string {
     return (req as unknown as { ip?: string }).ip ?? "unknown";
@@ -93,7 +100,7 @@ export class PublicController {
         return res.json({ product: publicProduct(product), data: entries });
     }
 
-        async status(req: TylixRequest, res: TylixResponse) {
+    async status(req: TylixRequest, res: TylixResponse) {
         if (!allowed(req, res)) return;
 
         const product = await activeProduct(req.params.slug);
@@ -115,6 +122,55 @@ export class PublicController {
         return res.json({
             product: publicProduct(product),
             status: { state, last_seen_at: key && key.last_seen_at ? key.last_seen_at : null },
+        });
+    }
+
+    /**
+     * Announcements for one product plus the ones that apply to every
+     * product. Active first, then upcoming, then recently resolved.
+     */
+    async announcements(req: TylixRequest, res: TylixResponse) {
+        if (!allowed(req, res)) return;
+
+        const product = await activeProduct(req.params.slug);
+        if (!product) {
+            res.status(404);
+            return res.json({ error: "Product not found." });
+        }
+
+        const wanted = String(req.query?.phase ?? "").toLowerCase();
+        if (wanted && !(PHASES as readonly string[]).includes(wanted)) {
+            res.status(422);
+            return res.json({ error: `phase must be one of: ${PHASES.join(", ")}.` });
+        }
+
+        const rows = (await Announcement.query().orderBy("created_at", "DESC").get()) as AnnouncementAttributes[];
+
+        const now = Date.now();
+        const found: { row: AnnouncementAttributes; phase: PublicPhase }[] = [];
+        for (const row of rows) {
+            const owner = Number(row.product_id);
+            if (owner !== product.id && owner !== 0) continue;
+
+            const phase = publicPhaseOf(row, now);
+            if (!phase || (wanted && phase !== wanted)) continue;
+
+            found.push({ row, phase });
+        }
+
+        found.sort((a, b) => {
+            const byPhase = PHASE_ORDER[a.phase] - PHASE_ORDER[b.phase];
+            if (byPhase !== 0) return byPhase;
+
+            const startA = instantOf(a.row.starts_at) || 0;
+            const startB = instantOf(b.row.starts_at) || 0;
+            return a.phase === "upcoming" ? startA - startB : startB - startA;
+        });
+
+        setHeader(res, "Cache-Control", "public, max-age=30");
+        return res.json({
+            product: publicProduct(product),
+            data: found.slice(0, 50).map((f) => toPublicAnnouncement(f.row, f.phase)),
         });
     }
 }
