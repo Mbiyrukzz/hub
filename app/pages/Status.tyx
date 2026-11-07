@@ -1,0 +1,179 @@
+page Status
+
+title "Status"
+
+needs
+  Auth
+
+meta
+  transition "fade"
+
+state
+  checkedAuth: false
+  forbidden: false
+  loading: true
+  error: ""
+  products: []
+  events: []
+
+action
+  ago(value) {
+    if not value {
+      return "Never"
+    }
+    const secs = Math.floor((Date.now() - new Date(value).getTime()) / 1000)
+    if secs < 60 {
+      return "Just now"
+    }
+    if secs < 3600 {
+      return Math.floor(secs / 60) + " min ago"
+    }
+    if secs < 86400 {
+      return Math.floor(secs / 3600) + " h ago"
+    }
+    return Math.floor(secs / 86400) + " d ago"
+  }
+
+  stateLabel(s) {
+    if s is "online" {
+      return "Online"
+    }
+    if s is "offline" {
+      return "No heartbeat"
+    }
+    if s is "waiting" {
+      return "Waiting for first heartbeat"
+    }
+    return "No API key"
+  }
+
+  stateDot(s) {
+    if s is "online" {
+      return "bg-emerald-500"
+    }
+    if s is "offline" {
+      return "bg-rose-500"
+    }
+    return "bg-slate-400"
+  }
+
+  eventBadge(type) {
+    if type is "deploy.succeeded" or type is "server.recovered" {
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+    }
+    if type is "deploy.failed" or type is "server.unreachable" {
+      return "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+    }
+    return "bg-slate-500/10 text-slate-600 dark:text-slate-400"
+  }
+
+  async load() {
+    this.error = ""
+    const res = await useApi("/api/admin/status")
+
+    if res.status is 403 {
+      this.forbidden = true
+      return null
+    }
+    if not res.ok {
+      this.error = "Couldn't load the status."
+      return null
+    }
+
+    this.products = res.data.products.map((p) => Object.assign({}, p, {
+      label: this.stateLabel(p.state),
+      dot: this.stateDot(p.state),
+      seen: this.ago(p.last_seen_at)
+    }))
+    this.events = res.data.events.map((e) => Object.assign({}, e, {
+      badge: this.eventBadge(e.type),
+      when: this.ago(e.occurred_at)
+    }))
+  }
+
+  async refresh() {
+    this.loading = true
+    await this.load()
+    this.loading = false
+  }
+
+onMount
+  async {
+    if not Auth.user {
+      window.location.href = "/login"
+      return null
+    }
+
+    await this.load()
+    this.loading = false
+    this.checkedAuth = true
+  }
+
+template
+{{#if checkedAuth}}
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+{{#if forbidden}}
+    <div class="rounded-xl border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-6">
+      <h1 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">You don't have access to the Hub</h1>
+      <p class="text-sm text-amber-700 dark:text-amber-400">Your account isn't listed in HUB_ADMINS, or its email isn't verified yet.</p>
+    </div>
+{{/if}}
+
+{{#if not forbidden}}
+    <div class="flex items-end justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Status</h1>
+        <p class="text-sm text-slate-500 mt-1">Products report in with a heartbeat every minute. No heartbeat for 3 minutes counts as down.</p>
+      </div>
+      <button onclick="{{ refresh() }}" disabled="{{ loading }}" class="text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3.5 py-2 hover:bg-white dark:hover:bg-slate-800 transition-colors disabled:opacity-50">{{ loading ? 'Refreshing…' : 'Refresh' }}</button>
+    </div>
+
+{{#if error}}
+    <p role="alert" class="text-sm text-rose-600 dark:text-rose-400 mb-4">{{ error }}</p>
+{{/if}}
+
+    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden mb-8">
+{{#if products.length is 0}}
+      <p class="p-6 text-sm text-slate-500">No products yet.</p>
+{{/if}}
+
+{{#each p in products}}
+      <div class="flex items-center gap-4 px-5 py-4 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
+        <span class="w-2.5 h-2.5 rounded-full shrink-0 {{ p.dot }}"></span>
+        <div class="min-w-0 flex-1">
+          <p class="font-medium truncate">{{ p.name }}</p>
+          <p class="text-xs text-slate-500 mt-0.5">{{ p.label }}</p>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ p.last_version ? 'v' + p.last_version : '—' }}</p>
+          <p class="text-xs text-slate-500 mt-0.5">Last seen: {{ p.seen }}</p>
+        </div>
+      </div>
+{{/each}}
+    </section>
+
+    <h2 class="text-sm font-semibold mb-3">Recent events</h2>
+    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
+{{#if events.length is 0}}
+      <p class="p-6 text-sm text-slate-500">No events reported yet.</p>
+{{/if}}
+
+{{#each e in events}}
+      <div class="flex items-start gap-4 px-5 py-3 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
+        <span class="rounded px-1.5 py-0.5 text-[11px] font-medium shrink-0 {{ e.badge }}">{{ e.type }}</span>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm"><span class="font-medium">{{ e.productName }}</span>{{ e.message ? ' · ' + e.message : '' }}</p>
+        </div>
+        <span class="text-xs text-slate-500 shrink-0">{{ e.when }}</span>
+      </div>
+{{/each}}
+    </section>
+{{/if}}
+
+  </main>
+{{/if}}
+
+{{#if not checkedAuth}}
+  <p class="px-6 py-16 text-center text-sm text-slate-500">Loading…</p>
+{{/if}}

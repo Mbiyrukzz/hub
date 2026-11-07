@@ -10,6 +10,8 @@ import { Product, type ProductAttributes } from "../models/Product.js";
 import { ChangelogEntry } from "../models/ChangelogEntry.js";
 import { validateProduct, normalizeProduct } from "../validators/ProductValidator.js";
 import { requireHubAdmin } from "../services/AdminGate.js";
+import crypto from "node:crypto";
+import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 
 function toApi(row: ProductAttributes) {
     return { ...row, is_active: Boolean(row.is_active) };
@@ -116,5 +118,29 @@ export class ProductController {
 
         res.status(204);
         return res.end();
+    }
+
+
+  
+
+// inside class ProductController:
+    /** Creates or replaces the product's ingest key. The raw key is returned once, never stored. */
+    async rotateKey(req: TylixRequest, res: TylixResponse) {
+        if (!(await requireHubAdmin(req, res))) return;
+
+        const product = await findProduct(req, res);
+        if (!product) return;
+
+        const raw = "hub_" + crypto.randomBytes(24).toString("hex");
+        const hash = crypto.createHash("sha256").update(raw).digest("hex");
+
+        const existing = (await ProductApiKey.query().where("product_id", product.id).first()) as ProductApiKeyAttributes | null;
+        if (existing) {
+            await ProductApiKey.update(existing.id, { key_hash: hash, last_seen_at: "", last_version: "" });
+        } else {
+            await ProductApiKey.create({ product_id: product.id, key_hash: hash, last_seen_at: "", last_version: "" });
+        }
+
+        return res.json({ key: raw });
     }
 }

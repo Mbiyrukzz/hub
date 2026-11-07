@@ -271,7 +271,8 @@ template
 
         <section class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-4">
           <h2 class="text-sm font-semibold mb-1">System status</h2>
-          <p class="text-sm text-slate-500">Automated checks and incidents are the next module.</p>
+          <p class="text-sm text-slate-500 mb-3">See which products are reporting in and what just happened.</p>
+          <a href="/status" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Open status</a>
         </section>
 
       </aside>

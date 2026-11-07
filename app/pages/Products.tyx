@@ -24,6 +24,10 @@ state
   errors: {}
   formError: ""
   saving: false
+  newKey: ""
+  keyBusy: false
+  keyError: ""
+  keyCopied: false
 
 action
   setField(field, value) {
@@ -46,6 +50,9 @@ action
     this.fActive = true
     this.errors = {}
     this.formError = ""
+    this.newKey = ""
+    this.keyError = ""
+    this.keyCopied = false
   }
 
   openNew() {
@@ -150,6 +157,44 @@ action
       await this.load()
     } else {
       this.listError = result.data?.error ?? result.error ?? "Could not delete the product."
+    }
+  }
+
+  async generateKey() {
+    if this.editingId is 0 or this.keyBusy {
+      return null
+    }
+    if not confirm("Generate a new API key? A key already in use will stop working.") {
+      return null
+    }
+
+    this.keyBusy = true
+    this.keyError = ""
+    this.newKey = ""
+    this.keyCopied = false
+
+    const result = await useApi("/api/admin/products/" + this.editingId + "/key", { method: "POST", body: {} })
+
+    this.keyBusy = false
+
+    if result.ok {
+      this.newKey = result.data.key
+    } else {
+      this.keyError = result.data?.error ?? result.error ?? "Could not generate a key."
+    }
+  }
+
+  clearKeyCopied() {
+    this.keyCopied = false
+  }
+
+  async copyKey() {
+    try {
+      await navigator.clipboard.writeText(this.newKey)
+      this.keyCopied = true
+      setTimeout(() => this.clearKeyCopied(), 1500)
+    } catch (err) {
+      this.keyCopied = false
     }
   }
 
@@ -280,6 +325,20 @@ template
             <input type="checkbox" checked="{{ fActive }}" onclick="{{ toggleActive() }}" class="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500" />
             Visible in the public API
           </label>
+
+{{#if editingId is not 0}}
+          <div class="mt-5 rounded-md border border-slate-200 dark:border-slate-800 p-3">
+            <p class="text-xs font-medium text-slate-500 mb-2">API key for reporting status</p>
+{{#if keyError}}
+            <p role="alert" class="text-xs text-rose-600 dark:text-rose-400 mb-2">{{ keyError }}</p>
+{{/if}}
+{{#if newKey}}
+            <button onclick="{{ copyKey() }}" title="Copy the key" class="w-full text-left rounded-md bg-slate-100 dark:bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">{{ keyCopied ? 'Copied to clipboard' : newKey }}</button>
+            <p class="text-xs text-amber-600 dark:text-amber-400 mt-2">Copy it now. It is shown once and can't be retrieved later.</p>
+{{/if}}
+            <button onclick="{{ generateKey() }}" disabled="{{ keyBusy }}" class="mt-2 text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50">{{ keyBusy ? 'Generating…' : 'Generate new key' }}</button>
+          </div>
+{{/if}}
 
           <button onclick="{{ save() }}" disabled="{{ saving }}" class="mt-5 w-full bg-indigo-600 text-white rounded-md py-2 text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             {{ saving ? 'Saving…' : 'Save product' }}

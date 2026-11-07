@@ -11,7 +11,8 @@ computed
     return [
       { label: "Overview", href: "/dashboard" },
       { label: "Products", href: "/products" },
-      { label: "Changelog", href: "/changelog" }
+      { label: "Changelog", href: "/changelog" },
+      { label: "Status", href: "/status" }
     ]
   }
 
@@ -45,10 +46,6 @@ template
 {{#each t in tabs}}
       <a href="{{ t.href }}" class="{{ tabClass(t.href) }}">{{ t.label }}</a>
 {{/each}}
-      <span class="px-3 py-1.5 text-sm text-slate-600 cursor-default flex items-center gap-2">
-        Status
-        <span class="rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Soon</span>
-      </span>
     </nav>
 
     <div class="ml-auto flex items-center gap-2 shrink-0">
@@ -67,6 +64,30 @@ template
       <button onclick="{{ Auth.logout() }}" class="text-sm text-slate-300 border border-white/15 rounded-md px-3 py-1.5 hover:bg-white/5 transition-colors">Sign out</button>
     </div>
 
+  </div>
+</header>
+{{/if}}
+
+{{#if not Auth.user}}
+<header class="bg-slate-950 text-slate-100 border-b border-white/10">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center">
+    <a href="/" class="flex items-center gap-2.5 shrink-0">
+      <span class="w-7 h-7 rounded-md bg-indigo-500 flex items-center justify-center">
+        <IconBolt class="w-4 h-4 text-white" />
+      </span>
+      <span class="font-semibold tracking-tight">Ashmif Hub</span>
+    </a>
+    <button
+      onclick="{{ Theme.toggle() }}"
+      aria-label="Toggle color theme"
+      class="ml-auto w-8 h-8 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+    >
+{{#if Theme.mode is "dark"}}
+      <IconSun class="w-[18px] h-[18px]" />
+{{#else}}
+      <IconMoon class="w-[18px] h-[18px]" />
+{{/if}}
+    </button>
   </div>
 </header>
 {{/if}}

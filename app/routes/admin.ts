@@ -13,12 +13,15 @@
 import type { Router } from "@tylix/core";
 import { ProductController } from "../controllers/ProductController.js";
 import { ChangelogController } from "../controllers/ChangelogController.js";
+ import { StatusController } from "../controllers/StatusController.js";
+
 
 type Handler = Parameters<Router["get"]>[1];
 
 export async function routes(router: Router, { auth }: { auth: (handler: Handler) => Handler }) {
     const products = new ProductController();
     const changelog = new ChangelogController();
+    const status = new StatusController();
 
     router.get("/api/admin/products", auth((req, res) => products.index(req, res)));
     router.post("/api/admin/products", auth((req, res) => products.store(req, res)));
@@ -31,4 +34,7 @@ export async function routes(router: Router, { auth }: { auth: (handler: Handler
     router.get("/api/admin/changelog/:id", auth((req, res) => changelog.show(req, res)));
     router.put("/api/admin/changelog/:id", auth((req, res) => changelog.update(req, res)));
     router.delete("/api/admin/changelog/:id", auth((req, res) => changelog.destroy(req, res)));
+   
+router.get("/api/admin/status", auth((req, res) => status.index(req, res)));
+router.post("/api/admin/products/:id/key", auth((req, res) => products.rotateKey(req, res)));
 }
