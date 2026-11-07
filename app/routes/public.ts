@@ -20,4 +20,5 @@ router.post("/api/v1/ingest/events", (req, res) => ingest.event(req, res));
 
     router.get("/api/v1/products", (req, res) => pub.products(req, res));
     router.get("/api/v1/products/:slug/changelog", (req, res) => pub.changelog(req, res));
+        router.get("/api/v1/products/:slug/status", (req, res) => pub.status(req, res));
 }

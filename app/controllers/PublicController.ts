@@ -18,6 +18,7 @@ import { Product, type ProductAttributes } from "../models/Product.js";
 import { ChangelogEntry, type ChangelogEntryAttributes } from "../models/ChangelogEntry.js";
 import { CATEGORIES } from "../validators/ChangelogValidator.js";
 import { isLive, toPublicEntry } from "../services/ChangelogService.js";
+import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 
 const limiter = createRateLimiter({ max: 120, windowMs: 60_000 });
 
@@ -90,5 +91,30 @@ export class PublicController {
 
         setHeader(res, "Cache-Control", "public, max-age=30");
         return res.json({ product: publicProduct(product), data: entries });
+    }
+
+        async status(req: TylixRequest, res: TylixResponse) {
+        if (!allowed(req, res)) return;
+
+        const product = await activeProduct(req.params.slug);
+        if (!product) {
+            res.status(404);
+            return res.json({ error: "Product not found." });
+        }
+
+        const key = (await ProductApiKey.query().where("product_id", product.id).first()) as ProductApiKeyAttributes | null;
+
+        // No key or no heartbeat yet means we simply don't know.
+        let state = "unknown";
+        if (key && key.last_seen_at) {
+            const age = Date.now() - new Date(key.last_seen_at).getTime();
+            state = age <= 3 * 60 * 1000 ? "operational" : "outage";
+        }
+
+        setHeader(res, "Cache-Control", "public, max-age=30");
+        return res.json({
+            product: publicProduct(product),
+            status: { state, last_seen_at: key && key.last_seen_at ? key.last_seen_at : null },
+        });
     }
 }
