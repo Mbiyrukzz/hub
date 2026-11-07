@@ -11,6 +11,7 @@ import { createRateLimiter } from "@tylix/core";
 import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 import { StatusEvent } from "../models/StatusEvent.js";
+import { recordBeat } from "../services/Uptime.js";
 
 const EVENT_TYPES = ["deploy.started", "deploy.succeeded", "deploy.failed", "server.unreachable", "server.recovered"] as const;
 
@@ -54,7 +55,13 @@ export class IngestController {
         if (!key) return;
 
         const version = String(req.body?.version ?? "").slice(0, 40);
-        await ProductApiKey.update(key.id, { last_seen_at: new Date().toISOString(), last_version: version });
+        const now = new Date();
+
+        await ProductApiKey.update(key.id, { last_seen_at: now.toISOString(), last_version: version });
+
+        // key.last_seen_at is still the value from BEFORE this beat. Uptime
+        // never throws, and the heartbeat does not wait for it.
+        void recordBeat(key.product_id, key.last_seen_at, now.getTime());
 
         res.status(204);
         return res.end();

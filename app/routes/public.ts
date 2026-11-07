@@ -6,6 +6,7 @@
  *   GET  /api/v1/products/:slug/changelog
  *   GET  /api/v1/products/:slug/status
  *   GET  /api/v1/products/:slug/announcements
+ *   GET  /api/v1/products/:slug/uptime
  *
  * Authenticated by a product's API key (see IngestController):
  *   POST /api/v1/ingest/heartbeat
@@ -30,6 +31,7 @@ export async function routes(router: Router) {
     router.get("/api/v1/products/:slug/changelog", (req, res) => pub.changelog(req, res));
     router.get("/api/v1/products/:slug/status", (req, res) => pub.status(req, res));
     router.get("/api/v1/products/:slug/announcements", (req, res) => pub.announcements(req, res));
+    router.get("/api/v1/products/:slug/uptime", (req, res) => pub.uptime(req, res));
 
     // routes() runs once when the web server boots. Guard against a double start.
     if (!watchStarted) {

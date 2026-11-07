@@ -8,6 +8,7 @@
  *   GET /api/v1/products/:slug/changelog?limit=50&category=fixed
  *   GET /api/v1/products/:slug/status
  *   GET /api/v1/products/:slug/announcements?phase=active
+ *   GET /api/v1/products/:slug/uptime?days=90
  *
  * No login. Only live entries of active products are ever returned: drafts,
  * future-scheduled entries and inactive products answer as if they don't
@@ -22,11 +23,11 @@ import { Announcement, type AnnouncementAttributes } from "../models/Announcemen
 import { CATEGORIES } from "../validators/ChangelogValidator.js";
 import { instantOf, isLive, isoOf, toPublicEntry } from "../services/ChangelogService.js";
 import { publicPhaseOf, toPublicAnnouncement, type PublicPhase } from "../services/AnnouncementService.js";
+import { ONLINE_WINDOW_MS, uptimeFor } from "../services/Uptime.js";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 
 const limiter = createRateLimiter({ max: 120, windowMs: 60_000 });
 
-const ONLINE_WINDOW_MS = 3 * 60 * 1000;
 const PHASES: readonly PublicPhase[] = ["active", "upcoming", "resolved"];
 const PHASE_ORDER: Record<PublicPhase, number> = { active: 0, upcoming: 1, resolved: 2 };
 
@@ -177,5 +178,27 @@ export class PublicController {
             product: publicProduct(product),
             data: found.slice(0, 50).map((f) => toPublicAnnouncement(f.row, f.phase)),
         });
+    }
+
+    /**
+     * Daily uptime for up to 90 days, oldest first. A day with
+     * uptime_percent null was not monitored yet.
+     */
+    async uptime(req: TylixRequest, res: TylixResponse) {
+        if (!allowed(req, res)) return;
+
+        const product = await activeProduct(req.params.slug);
+        if (!product) {
+            res.status(404);
+            return res.json({ error: "Product not found." });
+        }
+
+        const days = Number.parseInt(String(req.query?.days ?? "90"), 10) || 90;
+        const key = (await ProductApiKey.query().where("product_id", product.id).first()) as ProductApiKeyAttributes | null;
+
+        const report = await uptimeFor(product.id, key?.last_seen_at, days);
+
+        setHeader(res, "Cache-Control", "public, max-age=30");
+        return res.json({ product: publicProduct(product), uptime: report });
     }
 }
