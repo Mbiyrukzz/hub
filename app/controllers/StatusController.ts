@@ -13,13 +13,15 @@ import { Product, type ProductAttributes } from "../models/Product.js";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 import { StatusEvent, type StatusEventAttributes } from "../models/StatusEvent.js";
 import { requireHubAdmin } from "../services/AdminGate.js";
+import { instantOf, isoOf } from "../services/ChangelogService.js";
 
 const ONLINE_WINDOW_MS = 3 * 60 * 1000;
 
 function stateOf(key: ProductApiKeyAttributes | undefined): string {
     if (!key) return "no_key";
     if (!key.last_seen_at) return "waiting";
-    const age = Date.now() - new Date(key.last_seen_at).getTime();
+    const age = Date.now() - instantOf(key.last_seen_at);
+    if (Number.isNaN(age)) return "waiting";
     return age <= ONLINE_WINDOW_MS ? "online" : "offline";
 }
 
@@ -45,7 +47,7 @@ export class StatusController {
                     name: p.name,
                     slug: p.slug,
                     state: stateOf(key),
-                    last_seen_at: key?.last_seen_at ?? "",
+                    last_seen_at: isoOf(key?.last_seen_at),
                     last_version: key?.last_version ?? "",
                 };
             }),
