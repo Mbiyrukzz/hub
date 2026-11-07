@@ -1,0 +1,11 @@
+component SiteLayout
+
+import SiteNavbar from "./components/SiteNavbar"
+import SiteFooter from "./components/SiteFooter"
+
+template
+  <div class="min-h-screen flex flex-col bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+    <SiteNavbar showPosts="{{ true }}" />
+    <main class="flex-1" data-tylix-slot="true"></main>
+    <SiteFooter showPosts="{{ true }}" showAccount="{{ true }}" />
+  </div>

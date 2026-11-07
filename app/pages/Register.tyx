@@ -1,0 +1,275 @@
+page Register
+
+import { IconCheck } from "tylix-icons"
+
+title "Create account"
+
+needs
+  Auth
+
+state
+  name: ""
+  email: ""
+  password: ""
+  confirmPassword: ""
+  agreedToTerms: false
+  error: ""
+  submitting: false
+  registered: false
+  perks: [
+    "Auth, database and styling already wired",
+    "Publish posts with cover images",
+    "Generate new features with one command"
+  ]
+
+computed
+  passwordsMatch() {
+    return this.password is this.confirmPassword
+  }
+
+  passwordScore() {
+    if this.password.length < 8 {
+      return 0
+    }
+
+    const hasMixedCase = /[a-z]/.test(this.password) and /[A-Z]/.test(this.password)
+    const hasDigit = /[0-9]/.test(this.password)
+    const hasSymbol = /[^A-Za-z0-9]/.test(this.password)
+
+    let score = 1
+    if hasMixedCase {
+      score += 1
+    }
+    if hasDigit {
+      score += 1
+    }
+    if hasSymbol {
+      score += 1
+    }
+    return score
+  }
+
+action
+  setField(field, value) {
+    this[field] = value
+  }
+
+  toggleTerms() {
+    this.agreedToTerms = not this.agreedToTerms
+  }
+
+  validate() {
+    const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email)
+
+    if this.name.trim().length is 0 {
+      return "Enter your name."
+    }
+    if not emailOk {
+      return "Enter a valid email address."
+    }
+    if this.password.length < 8 {
+      return "Password must be at least 8 characters."
+    }
+    if not this.passwordsMatch {
+      return "Passwords don't match."
+    }
+    if not this.agreedToTerms {
+      return "Please agree to the Terms of Service to continue."
+    }
+    return ""
+  }
+
+  messageFor(result) {
+    switch result.status {
+      case 409 {
+        return "An account with this email already exists."
+      }
+      case 422 {
+        const errors = result.data?.errors
+        if errors {
+          const firstField = Object.keys(errors)[0]
+          return errors[firstField][0]
+        }
+        return "Check your details and try again."
+      }
+      case 429 {
+        return "Too many attempts. Wait a minute and try again."
+      }
+      default {
+        return result.error ?? "Could not create account. Check your details and try again."
+      }
+    }
+  }
+
+  async submit() {
+    if this.submitting {
+      return null
+    }
+
+    this.error = this.validate()
+    if this.error {
+      return null
+    }
+
+    this.submitting = true
+
+    try {
+      const result = await useApi("/api/register", {
+        method: "POST",
+        body: { name: this.name, email: this.email, password: this.password }
+      })
+
+      if result.ok {
+        this.registered = true
+      } else {
+        this.error = this.messageFor(result)
+      }
+    } catch (err) {
+      this.error = "Network error. Check your connection and try again."
+    } finally {
+      this.submitting = false
+    }
+  }
+
+onMount
+  {
+    if Auth.user {
+      window.location.href = "/dashboard"
+    }
+  }
+
+template
+  <div class="flex items-center justify-center px-6 py-16">
+    <div class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+
+      <div class="hidden lg:flex flex-col justify-center border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-10">
+        <h2 class="text-2xl font-semibold tracking-tight mb-3">Start building</h2>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-8 leading-relaxed">Create an account and ship your first page today.</p>
+        <ul class="space-y-3">
+{{#each perk in perks}}
+          <li class="flex items-start gap-2.5 text-sm text-zinc-600 dark:text-zinc-300">
+            <IconCheck class="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" />
+            {{ perk }}
+          </li>
+{{/each}}
+        </ul>
+      </div>
+
+      <div class="flex items-center justify-center px-6 py-12">
+        <div class="w-full max-w-sm">
+{{#if registered}}
+          <div class="w-11 h-11 rounded-md bg-emerald-500/10 flex items-center justify-center mb-5">
+            <IconCheck class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <h1 class="text-2xl font-semibold tracking-tight mb-2">Check your email</h1>
+          <p class="text-sm text-zinc-500 mb-8">
+            We sent a verification link to <span class="text-zinc-900 dark:text-zinc-200">{{ email }}</span>.
+            Click it, then log in.
+          </p>
+          <a href="/login" class="inline-block w-full text-center bg-emerald-500 text-white dark:text-zinc-950 rounded-md py-2.5 text-sm font-semibold hover:bg-emerald-400 transition-colors">
+            Go to login
+          </a>
+{{#else}}
+          <h1 class="text-2xl font-semibold tracking-tight mb-1">Create your account</h1>
+          <p class="text-sm text-zinc-500 mb-8">Start building with Tylix in under a minute.</p>
+
+{{#if error}}
+          <div role="alert" aria-live="polite" class="rounded-md border border-rose-300 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 mb-6">
+            <p class="text-rose-700 dark:text-rose-400 text-sm">{{ error }}</p>
+          </div>
+{{/if}}
+
+          <label for="name" class="block text-zinc-500 text-xs font-medium mb-1.5">Name</label>
+          <input
+            id="name"
+            name="name"
+            autocomplete="name"
+            autofocus
+            placeholder="Jane Doe"
+            value="{{ name }}"
+            oninput="{{ setField('name', event.target.value) }}"
+            class="w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-md px-3.5 py-2.5 mb-4 text-sm outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+          />
+
+          <label for="email" class="block text-zinc-500 text-xs font-medium mb-1.5">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            value="{{ email }}"
+            oninput="{{ setField('email', event.target.value) }}"
+            class="w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-md px-3.5 py-2.5 mb-4 text-sm outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+          />
+
+          <label for="password" class="block text-zinc-500 text-xs font-medium mb-1.5">Password</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            placeholder="••••••••"
+            value="{{ password }}"
+            oninput="{{ setField('password', event.target.value) }}"
+            class="w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-md px-3.5 py-2.5 mb-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+          />
+
+{{#if password.length > 0}}
+          <div class="flex gap-1.5 mb-1.5">
+{{#each n in [0, 1, 2, 3]}}
+            <div class="{{ 'h-1 flex-1 rounded-full transition-colors ' + (n < passwordScore ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-800') }}"></div>
+{{/each}}
+          </div>
+          <p class="text-zinc-500 text-xs mb-4">{{ ['Too short', 'Weak', 'Okay', 'Good', 'Strong'][passwordScore] }}</p>
+{{#else}}
+          <p class="text-zinc-400 text-xs mb-4">At least 8 characters.</p>
+{{/if}}
+
+          <label for="confirmPassword" class="block text-zinc-500 text-xs font-medium mb-1.5">Confirm password</label>
+          <input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            autocomplete="new-password"
+            placeholder="••••••••"
+            value="{{ confirmPassword }}"
+            oninput="{{ setField('confirmPassword', event.target.value) }}"
+            onkeydown="{{ event.key is 'Enter' and submit() }}"
+            class="w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-md px-3.5 py-2.5 mb-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+          />
+{{#if confirmPassword.length > 0 and not passwordsMatch}}
+          <p class="text-rose-600 dark:text-rose-400 text-xs mb-3">Passwords don't match.</p>
+{{/if}}
+
+          <label class="flex items-start gap-2.5 text-sm text-zinc-500 my-5">
+            <input
+              type="checkbox"
+              checked="{{ agreedToTerms }}"
+              onclick="{{ toggleTerms() }}"
+              class="mt-0.5 rounded border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
+            />
+            <span>
+              I agree to the
+              <a href="https://tylix.dev/terms" class="text-emerald-600 dark:text-emerald-400 hover:underline">Terms of Service</a>
+              and
+              <a href="https://tylix.dev/privacy" class="text-emerald-600 dark:text-emerald-400 hover:underline">Privacy Policy</a>.
+            </span>
+          </label>
+
+          <button
+            onclick="{{ submit() }}"
+            disabled="{{ submitting }}"
+            class="w-full bg-emerald-500 text-white dark:text-zinc-950 rounded-md py-2.5 text-sm font-semibold hover:bg-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ submitting ? 'Creating account…' : 'Sign up' }}
+          </button>
+
+          <p class="text-sm text-zinc-500 text-center mt-6">
+            Already have an account? <a href="/login" class="text-emerald-600 dark:text-emerald-400 hover:underline">Log in</a>
+          </p>
+{{/if}}
+        </div>
+      </div>
+    </div>
+  </div>

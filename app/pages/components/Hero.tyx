@@ -1,0 +1,53 @@
+component Hero
+
+import { IconArrowRight } from "tylix-icons"
+
+props
+  loggedIn: boolean
+  hasAuth: boolean
+  hasPosts: boolean
+
+template
+  <section class="border-b border-zinc-200 dark:border-zinc-800">
+    <div class="max-w-4xl mx-auto px-6 pt-24 pb-20 text-center">
+      <p class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-8">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        v0.1 &mdash; now with hot reload
+      </p>
+
+      <h1 class="text-5xl md:text-6xl font-semibold tracking-tight leading-[1.05] mb-6">
+        Full-stack JavaScript,
+        <br />
+        <span class="text-emerald-500">without the virtual DOM</span>
+      </h1>
+
+      <p class="text-lg text-zinc-500 dark:text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
+        A reactive compiler, a generator-first CLI and a database-agnostic ORM,
+        wired together so you write pages, not plumbing.
+      </p>
+
+      <div class="flex items-center justify-center gap-3">
+{{#if loggedIn}}
+        <a href="/dashboard" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-emerald-500 text-white dark:text-zinc-950 text-sm font-semibold hover:bg-emerald-400 transition-colors">
+          Go to Dashboard
+          <IconArrowRight class="w-4 h-4" />
+        </a>
+{{#else if hasAuth}}
+        <a href="/register" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-emerald-500 text-white dark:text-zinc-950 text-sm font-semibold hover:bg-emerald-400 transition-colors">
+          Get started
+          <IconArrowRight class="w-4 h-4" />
+        </a>
+{{#else}}
+        <a href="https://tylix.dev/docs" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-emerald-500 text-white dark:text-zinc-950 text-sm font-semibold hover:bg-emerald-400 transition-colors">
+          Read the docs
+          <IconArrowRight class="w-4 h-4" />
+        </a>
+{{/if}}
+{{#if hasPosts}}
+        <a href="/posts" class="px-6 py-2.5 rounded-md border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
+          Browse posts
+        </a>
+{{/if}}
+      </div>
+    </div>
+  </section>
