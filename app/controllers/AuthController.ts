@@ -66,6 +66,12 @@ export class AuthController {
     }
 
     async register(req: TylixRequest, res: TylixResponse) {
+
+                // Internal tool: accounts are created by an admin, not by sign-up.
+        if (process.env.ALLOW_REGISTRATION !== "true") {
+            return res.status(403).json({ error: "Sign-ups are closed." });
+        }
+
         const limit = registerLimiter(clientIp(req));
         if (!limit.allowed) {
             return res.status(429).json({

@@ -1,33 +1,25 @@
 page Dashboard
 
-import CreatePostForm from "./components/CreatePostForm"
-import { IconUser, IconDocument, IconDatabase, IconFolder } from "tylix-icons"
-
-title "Dashboard"
+title "Overview"
 
 needs
   Auth
-
-uses
-  Mail
-  Analytics
-
-background
-  Analytics
-  Mail
-
-permissions
-  posts.view
 
 meta
   transition "fade"
 
 state
   checkedAuth: false
-  features: []
-  posts: []
-  loadingPosts: true
-  postError: ""
+  forbidden: false
+  loadError: ""
+  origin: ""
+  copied: ""
+  productCount: 0
+  publishedCount: 0
+  scheduledCount: 0
+  draftCount: 0
+  productCards: []
+  recent: []
 
 computed
   greeting() {
@@ -41,33 +33,97 @@ computed
     return "Good evening"
   }
 
-  postCountLabel() {
-    const count = this.posts.length
-    return `${count} ${count is 1 ? "post" : "posts"}`
-  }
-
 action
-  formatDate(value) {
+  stateOf(e) {
+    if e.status is "draft" {
+      return "draft"
+    }
+    const at = new Date(e.published_at).getTime()
+    if e.status is "scheduled" and at > Date.now() {
+      return "scheduled"
+    }
+    return "live"
+  }
+
+  stateLabel(s) {
+    if s is "live" {
+      return "Published"
+    }
+    if s is "scheduled" {
+      return "Scheduled"
+    }
+    return "Draft"
+  }
+
+  dotClass(s) {
+    if s is "live" {
+      return "bg-emerald-500"
+    }
+    if s is "scheduled" {
+      return "bg-amber-400"
+    }
+    return "bg-slate-400"
+  }
+
+  categoryBadge(category) {
+    const map = [
+      ["added", "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"],
+      ["improved", "bg-sky-500/10 text-sky-700 dark:text-sky-300"],
+      ["fixed", "bg-teal-500/10 text-teal-700 dark:text-teal-300"],
+      ["security", "bg-amber-500/10 text-amber-700 dark:text-amber-300"],
+      ["breaking", "bg-rose-500/10 text-rose-700 dark:text-rose-300"]
+    ]
+    const hit = map.find((m) => m[0] is category)
+    return hit ? hit[1] : "bg-slate-500/10 text-slate-600 dark:text-slate-400"
+  }
+
+  whenText(value) {
     if not value {
-      return ""
+      return "Not published"
     }
-    return new Date(value).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+    const d = new Date(value)
+    const day = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+    return day + ", " + time
   }
 
-  addPost(post) {
-    this.posts = [post, ...this.posts]
+  decorateEntry(e, prods) {
+    const owner = prods.find((p) => p.id is e.product_id)
+    const s = this.stateOf(e)
+    return Object.assign({}, e, {
+      productName: owner ? owner.name : "Unknown product",
+      state: s,
+      stateText: this.stateLabel(s),
+      dot: this.dotClass(s),
+      badge: this.categoryBadge(e.category),
+      whenLabel: this.whenText(e.published_at)
+    })
   }
 
-  async removePost(post) {
-    if not confirm("Delete this post?") {
-      return null
-    }
-    this.postError = ""
-    const result = await deleteApi("posts", post.id)
-    if result.ok {
-      this.posts = this.posts.filter(p => p.id is not post.id)
-    } else {
-      this.postError = result.error ?? "Couldn't delete that post."
+  decorateProduct(p, list) {
+    const mine = list.filter((e) => e.product_id is p.id)
+    const live = mine
+      .filter((e) => this.stateOf(e) is "live")
+      .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
+    return Object.assign({}, p, {
+      endpoint: "/api/v1/products/" + p.slug + "/changelog",
+      entryCount: mine.length,
+      latestText: live.length > 0 ? "v" + live[0].version : "No releases"
+    })
+  }
+
+  clearCopied() {
+    this.copied = ""
+  }
+
+  async copyEndpoint(slug) {
+    const url = this.origin + "/api/v1/products/" + slug + "/changelog"
+    try {
+      await navigator.clipboard.writeText(url)
+      this.copied = slug
+      setTimeout(() => this.clearCopied(), 1500)
+    } catch (err) {
+      this.copied = ""
     }
   }
 
@@ -78,109 +134,153 @@ onMount
       return null
     }
 
-    const featureResult = await useApi("/api/_tylix/features")
-    if featureResult.ok {
-      this.features = featureResult.data.data.filter(f => f.table is not "posts")
+    this.origin = window.location.origin
+
+    const results = await Promise.all([
+      useApi("/api/admin/products"),
+      useApi("/api/admin/changelog")
+    ])
+    const productRes = results[0]
+    const entryRes = results[1]
+
+    if productRes.status is 403 or entryRes.status is 403 {
+      this.forbidden = true
+      this.checkedAuth = true
+      return null
     }
 
-    const postResult = await getApi("posts")
-    if postResult.ok {
-      this.posts = postResult.data
-    } else {
-      this.postError = postResult.error ?? "Couldn't load your posts."
+    if not productRes.ok or not entryRes.ok {
+      this.loadError = "Couldn't load the Hub data. Try again in a moment."
+      this.checkedAuth = true
+      return null
     }
-    this.loadingPosts = false
+
+    const prods = Array.isArray(productRes.data) ? productRes.data : []
+    const list = Array.isArray(entryRes.data) ? entryRes.data : []
+
+    this.productCount = prods.length
+    this.publishedCount = list.filter((e) => this.stateOf(e) is "live").length
+    this.scheduledCount = list.filter((e) => this.stateOf(e) is "scheduled").length
+    this.draftCount = list.filter((e) => this.stateOf(e) is "draft").length
+    this.productCards = prods.map((p) => this.decorateProduct(p, list))
+    this.recent = list.slice(0, 6).map((e) => this.decorateEntry(e, prods))
 
     this.checkedAuth = true
   }
 
 template
 {{#if checkedAuth}}
-  <div class="max-w-6xl mx-auto px-6 py-12">
-    <div class="mb-10">
-      <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">{{ greeting }}</p>
-      <h1 class="text-3xl font-semibold tracking-tight">{{ Auth.user.name }}</h1>
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+{{#if forbidden}}
+    <div class="rounded-xl border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-6">
+      <h1 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">You don't have access to the Hub</h1>
+      <p class="text-sm text-amber-700 dark:text-amber-400">Your account isn't listed in HUB_ADMINS, or its email isn't verified yet.</p>
     </div>
-
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
-      <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-        <IconUser class="w-4 h-4 text-emerald-500 mb-3" />
-        <p class="text-xs text-zinc-500 mb-1">Signed in as</p>
-        <p class="text-sm font-semibold truncate">{{ Auth.user.email }}</p>
-      </div>
-
-      <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-        <IconDatabase class="w-4 h-4 text-emerald-500 mb-3" />
-        <p class="text-xs text-zinc-500 mb-1">Visitors today</p>
-        <p class="text-2xl font-semibold">{{ Analytics.visitorsToday }}</p>
-      </div>
-
-      <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-        <IconDocument class="w-4 h-4 text-emerald-500 mb-3" />
-        <p class="text-xs text-zinc-500 mb-1">Your posts</p>
-        <p class="text-2xl font-semibold">{{ posts.length }}</p>
-      </div>
-
-{{#if Mail.available}}
-      <a href="/dashboard/mail" class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
-        <IconFolder class="w-4 h-4 text-emerald-500 mb-3" />
-        <p class="text-xs text-zinc-500 mb-1">Mail</p>
-        <p class="text-2xl font-semibold">{{ Mail.unread }}</p>
-      </a>
 {{/if}}
-    </div>
 
-    <div class="flex items-center justify-between mb-5">
+{{#if not forbidden}}
+{{#if loadError}}
+    <p role="alert" class="text-sm text-rose-600 dark:text-rose-400 mb-6">{{ loadError }}</p>
+{{/if}}
+
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
       <div>
-        <h2 class="text-lg font-semibold tracking-tight">Your posts</h2>
-        <p class="text-sm text-zinc-500">{{ postCountLabel }}</p>
+        <p class="text-sm text-slate-500 mb-1">{{ greeting }}, {{ Auth.user.name }}</p>
+        <h1 class="text-2xl font-semibold tracking-tight">Release control</h1>
       </div>
-      <CreatePostForm onCreated="{{ addPost }}" />
+      <div class="flex items-center gap-2">
+        <a href="/products?new=1" class="text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3.5 py-2 hover:bg-white dark:hover:bg-slate-800 transition-colors">Add product</a>
+        <a href="/changelog?new=1" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">New release</a>
+      </div>
     </div>
 
-{{#if postError}}
-    <p role="alert" class="text-sm text-rose-600 dark:text-rose-400 mb-4">{{ postError }}</p>
-{{/if}}
+    <dl class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 mb-8">
+      <div class="px-5 py-4">
+        <dt class="text-xs text-slate-500">Products</dt>
+        <dd class="text-2xl font-semibold tabular-nums mt-1">{{ productCount }}</dd>
+      </div>
+      <div class="px-5 py-4">
+        <dt class="text-xs text-slate-500">Published</dt>
+        <dd class="text-2xl font-semibold tabular-nums mt-1 text-emerald-600 dark:text-emerald-400">{{ publishedCount }}</dd>
+      </div>
+      <div class="px-5 py-4">
+        <dt class="text-xs text-slate-500">Scheduled</dt>
+        <dd class="text-2xl font-semibold tabular-nums mt-1 text-amber-600 dark:text-amber-400">{{ scheduledCount }}</dd>
+      </div>
+      <div class="px-5 py-4">
+        <dt class="text-xs text-slate-500">Drafts</dt>
+        <dd class="text-2xl font-semibold tabular-nums mt-1 text-slate-600 dark:text-slate-300">{{ draftCount }}</dd>
+      </div>
+    </dl>
 
-{{#if loadingPosts}}
-    <p class="text-sm text-zinc-500 mb-12">Loading posts…</p>
-{{#else if posts.length is 0}}
-    <div class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-800 p-10 text-center mb-12">
-      <h3 class="font-medium mb-1.5">No posts yet</h3>
-      <p class="text-sm text-zinc-500">Click “New Post” to publish your first one.</p>
-    </div>
-{{#else}}
-    <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-800 mb-12">
-{{#each p in posts}}
-      <div class="flex items-center gap-4 p-4">
-{{#if p.cover_image}}
-        <img src="{{ p.cover_image }}" alt="" class="w-16 h-12 rounded-md object-cover border border-zinc-200 dark:border-zinc-800 shrink-0" />
-{{#else}}
-        <div class="w-16 h-12 rounded-md bg-zinc-100 dark:bg-zinc-800 shrink-0"></div>
-{{/if}}
-        <div class="min-w-0 flex-1">
-          <a href="{{ `/posts/${p.id}` }}" class="block font-medium truncate hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{{ p.title }}</a>
-          <p class="text-xs text-zinc-500">{{ formatDate(p.created_at) }}</p>
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-8">
+
+      <section class="min-w-0">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold">Latest releases</h2>
+          <a href="/changelog" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Manage all</a>
         </div>
-        <button onclick="{{ removePost(p) }}" class="text-sm text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 px-2 py-1 transition-colors">Delete</button>
-      </div>
+
+{{#if recent.length is 0}}
+        <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center">
+          <h3 class="font-medium mb-1.5">No releases yet</h3>
+          <p class="text-sm text-slate-500 mb-5">Write your first changelog entry and it will be available to every connected site.</p>
+          <a href="/changelog?new=1" class="inline-flex text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">New release</a>
+        </div>
+{{/if}}
+
+        <ol class="ml-2 border-l border-slate-200 dark:border-slate-800 space-y-6">
+{{#each e in recent}}
+          <li class="relative pl-6">
+            <span class="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full ring-4 ring-slate-50 dark:ring-slate-900 {{ e.dot }}"></span>
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+              <span class="text-sm font-medium">{{ e.productName }}</span>
+              <span class="font-mono text-xs text-slate-500">v{{ e.version }}</span>
+              <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {{ e.badge }}">{{ e.category }}</span>
+            </div>
+            <p class="text-sm text-slate-700 dark:text-slate-300">{{ e.title }}</p>
+            <p class="text-xs text-slate-500 mt-1">{{ e.stateText }} · {{ e.whenLabel }}</p>
+          </li>
 {{/each}}
+        </ol>
+      </section>
+
+      <aside class="space-y-6 min-w-0">
+
+        <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3">
+            <h2 class="text-sm font-semibold">Products</h2>
+            <a href="/products" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Manage</a>
+          </div>
+
+{{#if productCards.length is 0}}
+          <p class="px-4 pb-4 text-sm text-slate-500">No products registered yet.</p>
+{{/if}}
+
+{{#each p in productCards}}
+          <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-sm font-medium truncate">{{ p.name }}</p>
+              <span class="shrink-0 font-mono text-xs text-slate-500">{{ p.latestText }}</span>
+            </div>
+            <button onclick="{{ copyEndpoint(p.slug) }}" title="Copy the public API address" class="mt-2 w-full text-left rounded-md bg-slate-100 dark:bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] text-slate-600 dark:text-slate-400 truncate hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">{{ copied is p.slug ? 'Copied to clipboard' : p.endpoint }}</button>
+          </div>
+{{/each}}
+        </section>
+
+        <section class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-4">
+          <h2 class="text-sm font-semibold mb-1">System status</h2>
+          <p class="text-sm text-slate-500">Automated checks and incidents are the next module.</p>
+        </section>
+
+      </aside>
     </div>
 {{/if}}
 
-{{#if features.length > 0}}
-    <div class="mb-5">
-      <h2 class="text-lg font-semibold tracking-tight">Scaffolded features</h2>
-      <p class="text-sm text-zinc-500">Generated with tylix make:feature</p>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-{{#each f in features}}
-      <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-        <h3 class="font-medium mb-1">{{ f.name }}</h3>
-        <code class="text-xs font-mono text-zinc-500">/api/{{ f.table }}</code>
-      </div>
-{{/each}}
-    </div>
+  </main>
 {{/if}}
-  </div>
+
+{{#if not checkedAuth}}
+  <p class="px-6 py-16 text-center text-sm text-slate-500">Loading…</p>
 {{/if}}

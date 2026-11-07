@@ -1,8 +1,6 @@
 page Login
 
-import { IconCheck } from "tylix-icons"
-
-title "Log in"
+title "Sign in"
 
 needs
   Auth
@@ -10,22 +8,12 @@ needs
 state
   email: ""
   password: ""
-  remember: false
   error: ""
   submitting: false
-  perks: [
-    "Manage your posts from one dashboard",
-    "Upload cover images for every post",
-    "Your session refreshes automatically"
-  ]
 
 action
   setField(field, value) {
     this[field] = value
-  }
-
-  toggleRemember() {
-    this.remember = not this.remember
   }
 
   validate() {
@@ -41,7 +29,7 @@ action
   messageFor(result) {
     switch result.status {
       case 401, 403 {
-        return "Invalid email or password."
+        return result.data?.error ?? "Invalid email or password."
       }
       case 422 {
         const errors = result.data?.errors
@@ -55,7 +43,7 @@ action
         return "Too many attempts. Wait a minute and try again."
       }
       default {
-        return result.error ?? "Could not log in. Try again."
+        return result.error ?? "Could not sign in. Try again."
       }
     }
   }
@@ -99,85 +87,61 @@ onMount
   }
 
 template
-  <div class="flex items-center justify-center px-6 py-16">
-    <div class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+  <div class="flex items-center justify-center px-6 py-24">
+    <div class="w-full max-w-sm">
 
-      <div class="hidden lg:flex flex-col justify-center border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-10">
-        <h2 class="text-2xl font-semibold tracking-tight mb-3">Welcome back</h2>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-8 leading-relaxed">Log in to pick up where you left off.</p>
-        <ul class="space-y-3">
-{{#each perk in perks}}
-          <li class="flex items-start gap-2.5 text-sm text-zinc-600 dark:text-zinc-300">
-            <IconCheck class="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" />
-            {{ perk }}
-          </li>
-{{/each}}
-        </ul>
+      <div class="flex items-center gap-2.5 mb-8">
+        <span class="w-8 h-8 rounded-md bg-indigo-500 flex items-center justify-center text-white font-bold text-sm">A</span>
+        <span class="font-semibold tracking-tight">Ashmif Hub</span>
       </div>
 
-      <div class="flex items-center justify-center px-6 py-12">
-        <div class="w-full max-w-sm">
-          <h1 class="text-2xl font-semibold tracking-tight mb-1">Log in</h1>
-          <p class="text-sm text-zinc-500 mb-8">Continue to your dashboard.</p>
+      <h1 class="text-2xl font-semibold tracking-tight mb-1">Sign in</h1>
+      <p class="text-sm text-slate-500 mb-8">Internal release and status console.</p>
 
 {{#if error}}
-          <div role="alert" aria-live="polite" class="rounded-md border border-rose-300 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 mb-6">
-            <p class="text-rose-700 dark:text-rose-400 text-sm">{{ error }}</p>
-          </div>
+      <div role="alert" aria-live="polite" class="rounded-md border border-rose-300 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 mb-6">
+        <p class="text-rose-700 dark:text-rose-400 text-sm">{{ error }}</p>
+      </div>
 {{/if}}
 
-          <label for="email" class="block text-zinc-500 text-xs font-medium mb-1.5">Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autocomplete="email"
-            autofocus
-            placeholder="you@example.com"
-            value="{{ email }}"
-            oninput="{{ setField('email', event.target.value) }}"
-            onkeydown="{{ event.key is 'Enter' and submit() }}"
-            class="w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-md px-3.5 py-2.5 mb-4 text-sm outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
-          />
+      <label for="email" class="block text-slate-500 text-xs font-medium mb-1.5">Email</label>
+      <input
+        id="email"
+        name="email"
+        type="email"
+        autocomplete="email"
+        autofocus
+        placeholder="you@ashmif.com"
+        value="{{ email }}"
+        oninput="{{ setField('email', event.target.value) }}"
+        onkeydown="{{ event.key is 'Enter' and submit() }}"
+        class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-md px-3.5 py-2.5 mb-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition"
+      />
 
-          <label for="password" class="block text-zinc-500 text-xs font-medium mb-1.5">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            placeholder="••••••••"
-            value="{{ password }}"
-            oninput="{{ setField('password', event.target.value) }}"
-            onkeydown="{{ event.key is 'Enter' and submit() }}"
-            class="w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-md px-3.5 py-2.5 mb-4 text-sm outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
-          />
+      <label for="password" class="block text-slate-500 text-xs font-medium mb-1.5">Password</label>
+      <input
+        id="password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        placeholder="••••••••"
+        value="{{ password }}"
+        oninput="{{ setField('password', event.target.value) }}"
+        onkeydown="{{ event.key is 'Enter' and submit() }}"
+        class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-md px-3.5 py-2.5 mb-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition"
+      />
 
-          <div class="flex items-center justify-between mb-6">
-            <label class="flex items-center gap-2 text-sm text-zinc-500">
-              <input
-                type="checkbox"
-                checked="{{ remember }}"
-                onclick="{{ toggleRemember() }}"
-                class="rounded border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
-              />
-              Remember me
-            </label>
-            <a href="/forgot-password" class="text-sm text-emerald-600 dark:text-emerald-400 hover:underline">Forgot password?</a>
-          </div>
-
-          <button
-            onclick="{{ submit() }}"
-            disabled="{{ submitting }}"
-            class="w-full bg-emerald-500 text-white dark:text-zinc-950 rounded-md py-2.5 text-sm font-semibold hover:bg-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {{ submitting ? 'Logging in…' : 'Log in' }}
-          </button>
-
-          <p class="text-sm text-zinc-500 text-center mt-6">
-            Need an account? <a href="/register" class="text-emerald-600 dark:text-emerald-400 hover:underline">Sign up</a>
-          </p>
-        </div>
+      <div class="flex justify-end mb-6">
+        <a href="/forgot-password" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Forgot password?</a>
       </div>
+
+      <button
+        onclick="{{ submit() }}"
+        disabled="{{ submitting }}"
+        class="w-full bg-indigo-600 text-white rounded-md py-2.5 text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {{ submitting ? 'Signing in…' : 'Sign in' }}
+      </button>
+
     </div>
   </div>

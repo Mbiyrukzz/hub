@@ -1,0 +1,446 @@
+page Changelog
+
+title "Changelog"
+
+needs
+  Auth
+
+meta
+  transition "fade"
+
+state
+  checkedAuth: false
+  forbidden: false
+  loading: true
+  listError: ""
+  products: []
+  entries: []
+  statusTabs: []
+  categories: ["added", "improved", "fixed", "security", "breaking"]
+  statuses: ["draft", "scheduled", "published"]
+  filterProduct: 0
+  filterState: "all"
+  chipOn: "px-3 py-1 rounded-full text-sm bg-indigo-600 text-white"
+  chipOff: "px-3 py-1 rounded-full text-sm border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors"
+  editorOpen: false
+  editingId: 0
+  fProduct: 0
+  fVersion: ""
+  fTitle: ""
+  fCategory: "added"
+  fStatus: "draft"
+  fDate: ""
+  fBody: ""
+  errors: {}
+  formError: ""
+  saving: false
+
+computed
+  visible() {
+    return this.entries.filter((e) => (this.filterProduct is 0 or e.product_id is this.filterProduct) and (this.filterState is "all" or e.state is this.filterState))
+  }
+
+action
+  setField(field, value) {
+    this[field] = value
+  }
+
+  setFilter(field, value) {
+    this[field] = value
+  }
+
+  errorsOf(raw) {
+    return Object.fromEntries(Object.keys(raw).map((k) => [k, raw[k][0]]))
+  }
+
+  stateOf(e) {
+    if e.status is "draft" {
+      return "draft"
+    }
+    const at = new Date(e.published_at).getTime()
+    if e.status is "scheduled" and at > Date.now() {
+      return "scheduled"
+    }
+    return "live"
+  }
+
+  stateLabel(s) {
+    if s is "live" {
+      return "Published"
+    }
+    if s is "scheduled" {
+      return "Scheduled"
+    }
+    return "Draft"
+  }
+
+  stateBadge(s) {
+    if s is "live" {
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+    }
+    if s is "scheduled" {
+      return "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+    }
+    return "bg-slate-500/10 text-slate-600 dark:text-slate-400"
+  }
+
+  categoryBadge(category) {
+    const map = [
+      ["added", "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"],
+      ["improved", "bg-sky-500/10 text-sky-700 dark:text-sky-300"],
+      ["fixed", "bg-teal-500/10 text-teal-700 dark:text-teal-300"],
+      ["security", "bg-amber-500/10 text-amber-700 dark:text-amber-300"],
+      ["breaking", "bg-rose-500/10 text-rose-700 dark:text-rose-300"]
+    ]
+    const hit = map.find((m) => m[0] is category)
+    return hit ? hit[1] : "bg-slate-500/10 text-slate-600 dark:text-slate-400"
+  }
+
+  whenText(value) {
+    if not value {
+      return "Not published"
+    }
+    const d = new Date(value)
+    const day = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+    return day + ", " + time
+  }
+
+  // The value a datetime-local input expects, in the browser's own timezone.
+  toLocalInput(iso) {
+    if not iso {
+      return ""
+    }
+    const d = new Date(iso)
+    const pad = (n) => (n < 10 ? "0" + n : "" + n)
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes())
+  }
+
+  decorate(e, prods) {
+    const owner = prods.find((p) => p.id is e.product_id)
+    const s = this.stateOf(e)
+    return Object.assign({}, e, {
+      productName: owner ? owner.name : "Unknown product",
+      state: s,
+      stateText: this.stateLabel(s),
+      stateClass: this.stateBadge(s),
+      badge: this.categoryBadge(e.category),
+      whenLabel: this.whenText(e.published_at),
+      preview: String(e.body).replace(/\n/g, " ").slice(0, 140)
+    })
+  }
+
+  resetForm() {
+    this.fProduct = this.filterProduct is 0 ? (this.products.length > 0 ? this.products[0].id : 0) : this.filterProduct
+    this.fVersion = ""
+    this.fTitle = ""
+    this.fCategory = "added"
+    this.fStatus = "draft"
+    this.fDate = ""
+    this.fBody = ""
+    this.errors = {}
+    this.formError = ""
+  }
+
+  openNew() {
+    this.resetForm()
+    this.editingId = 0
+    this.editorOpen = true
+  }
+
+  openEdit(e) {
+    this.resetForm()
+    this.editingId = e.id
+    this.fProduct = e.product_id
+    this.fVersion = e.version
+    this.fTitle = e.title
+    this.fCategory = e.category
+    this.fStatus = e.status
+    this.fDate = this.toLocalInput(e.published_at)
+    this.fBody = e.body
+    this.editorOpen = true
+  }
+
+  closeEditor() {
+    this.editorOpen = false
+    this.editingId = 0
+    this.resetForm()
+  }
+
+  async load() {
+    const results = await Promise.all([
+      useApi("/api/admin/products"),
+      useApi("/api/admin/changelog")
+    ])
+    const productRes = results[0]
+    const entryRes = results[1]
+
+    if productRes.status is 403 or entryRes.status is 403 {
+      this.forbidden = true
+      return null
+    }
+    if not productRes.ok or not entryRes.ok {
+      this.listError = "Couldn't load the changelog."
+      return null
+    }
+
+    this.products = productRes.data
+    this.entries = entryRes.data.map((e) => this.decorate(e, productRes.data))
+    this.listError = ""
+  }
+
+  async save() {
+    if this.saving {
+      return null
+    }
+
+    this.saving = true
+    this.errors = {}
+    this.formError = ""
+
+    const isNew = this.editingId is 0
+    const when = this.fStatus is "draft" or not this.fDate ? "" : new Date(this.fDate).toISOString()
+    const body = {
+      product_id: this.fProduct,
+      version: this.fVersion,
+      title: this.fTitle,
+      body: this.fBody,
+      category: this.fCategory,
+      status: this.fStatus,
+      published_at: when
+    }
+    const path = isNew ? "/api/admin/changelog" : "/api/admin/changelog/" + this.editingId
+    const result = await useApi(path, { method: isNew ? "POST" : "PUT", body: body })
+
+    this.saving = false
+
+    if result.ok {
+      this.closeEditor()
+      await this.load()
+      return null
+    }
+
+    const raw = result.data?.errors
+    if raw {
+      this.errors = this.errorsOf(raw)
+    } else {
+      this.formError = result.data?.error ?? result.error ?? "Could not save the entry."
+    }
+  }
+
+  async remove(e) {
+    if not confirm("Delete " + e.productName + " v" + e.version + "?") {
+      return null
+    }
+
+    this.listError = ""
+    const result = await useApi("/api/admin/changelog/" + e.id, { method: "DELETE" })
+
+    if result.ok {
+      if this.editingId is e.id {
+        this.closeEditor()
+      }
+      await this.load()
+    } else {
+      this.listError = result.data?.error ?? result.error ?? "Could not delete the entry."
+    }
+  }
+
+onMount
+  async {
+    if not Auth.user {
+      window.location.href = "/login"
+      return null
+    }
+
+    this.statusTabs = [
+      { key: "all", label: "All" },
+      { key: "live", label: "Published" },
+      { key: "scheduled", label: "Scheduled" },
+      { key: "draft", label: "Drafts" }
+    ]
+
+    await this.load()
+    this.loading = false
+    this.checkedAuth = true
+
+    if window.location.search.includes("new=1") {
+      this.openNew()
+    }
+  }
+
+template
+{{#if checkedAuth}}
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+{{#if forbidden}}
+    <div class="rounded-xl border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-6">
+      <h1 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">You don't have access to the Hub</h1>
+      <p class="text-sm text-amber-700 dark:text-amber-400">Your account isn't listed in HUB_ADMINS, or its email isn't verified yet.</p>
+    </div>
+{{/if}}
+
+{{#if not forbidden}}
+    <div class="flex items-end justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Changelog</h1>
+        <p class="text-sm text-slate-500 mt-1">Write once, publish to every connected site.</p>
+      </div>
+      <button onclick="{{ openNew() }}" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">New release</button>
+    </div>
+
+{{#if listError}}
+    <p role="alert" class="text-sm text-rose-600 dark:text-rose-400 mb-4">{{ listError }}</p>
+{{/if}}
+
+{{#if editorOpen}}
+    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 sm:p-6 mb-8">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-sm font-semibold">{{ editingId is 0 ? 'New release' : 'Edit release' }}</h2>
+        <button onclick="{{ closeEditor() }}" class="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Close</button>
+      </div>
+
+{{#if formError}}
+      <p role="alert" class="rounded-md border border-rose-300 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-sm text-rose-700 dark:text-rose-400 mb-4">{{ formError }}</p>
+{{/if}}
+
+{{#if products.length is 0}}
+      <p class="text-sm text-slate-500 mb-2">Add a product first, then write its releases.</p>
+      <a href="/products?new=1" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Add a product</a>
+{{/if}}
+
+{{#if products.length > 0}}
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div>
+          <label for="c-product" class="block text-xs font-medium text-slate-500 mb-1.5">Product</label>
+          <select id="c-product" disabled="{{ editingId is not 0 }}" onchange="{{ setField('fProduct', Number(event.target.value)) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 disabled:opacity-60">
+{{#each p in products}}
+            <option value="{{ p.id }}" selected="{{ fProduct is p.id }}">{{ p.name }}</option>
+{{/each}}
+          </select>
+{{#if errors.product_id}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.product_id }}</p>
+{{/if}}
+        </div>
+
+        <div>
+          <label for="c-version" class="block text-xs font-medium text-slate-500 mb-1.5">Version</label>
+          <input id="c-version" type="text" placeholder="0.2.0" value="{{ fVersion }}" oninput="{{ setField('fVersion', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+{{#if errors.version}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.version }}</p>
+{{/if}}
+        </div>
+
+        <div>
+          <label for="c-category" class="block text-xs font-medium text-slate-500 mb-1.5">Category</label>
+          <select id="c-category" onchange="{{ setField('fCategory', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm capitalize outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
+{{#each c in categories}}
+            <option value="{{ c }}" selected="{{ fCategory is c }}">{{ c }}</option>
+{{/each}}
+          </select>
+{{#if errors.category}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.category }}</p>
+{{/if}}
+        </div>
+
+        <div>
+          <label for="c-status" class="block text-xs font-medium text-slate-500 mb-1.5">Status</label>
+          <select id="c-status" onchange="{{ setField('fStatus', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm capitalize outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500">
+{{#each s in statuses}}
+            <option value="{{ s }}" selected="{{ fStatus is s }}">{{ s }}</option>
+{{/each}}
+          </select>
+{{#if errors.status}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.status }}</p>
+{{/if}}
+        </div>
+      </div>
+
+{{#if fStatus is not "draft"}}
+      <div class="mt-4 max-w-xs">
+        <label for="c-date" class="block text-xs font-medium text-slate-500 mb-1.5">{{ fStatus is 'scheduled' ? 'Goes live at' : 'Published at (optional)' }}</label>
+        <input id="c-date" type="datetime-local" value="{{ fDate }}" oninput="{{ setField('fDate', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+{{#if errors.published_at}}
+        <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.published_at }}</p>
+{{/if}}
+      </div>
+{{/if}}
+
+      <label for="c-title" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">Title</label>
+      <input id="c-title" type="text" placeholder="Docker sites, one-click deploys" value="{{ fTitle }}" oninput="{{ setField('fTitle', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+{{#if errors.title}}
+      <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.title }}</p>
+{{/if}}
+
+      <label for="c-body" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">What changed (Markdown)</label>
+      <textarea id="c-body" rows="9" placeholder="- Added a Docker site type&#10;- Fixed the server logs page" value="{{ fBody }}" oninput="{{ setField('fBody', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"></textarea>
+{{#if errors.body}}
+      <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.body }}</p>
+{{/if}}
+
+      <div class="flex items-center gap-2 mt-5">
+        <button onclick="{{ save() }}" disabled="{{ saving }}" class="bg-indigo-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ saving ? 'Saving…' : 'Save release' }}
+        </button>
+        <button onclick="{{ closeEditor() }}" class="text-sm text-slate-600 dark:text-slate-300 px-3 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Cancel</button>
+      </div>
+{{/if}}
+    </section>
+{{/if}}
+
+    <div class="flex flex-col gap-3 mb-5">
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="{{ setFilter('filterProduct', 0) }}" class="{{ filterProduct is 0 ? chipOn : chipOff }}">All products</button>
+{{#each p in products}}
+        <button onclick="{{ setFilter('filterProduct', p.id) }}" class="{{ filterProduct is p.id ? chipOn : chipOff }}">{{ p.name }}</button>
+{{/each}}
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+{{#each t in statusTabs}}
+        <button onclick="{{ setFilter('filterState', t.key) }}" class="{{ filterState is t.key ? chipOn : chipOff }}">{{ t.label }}</button>
+{{/each}}
+      </div>
+    </div>
+
+    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
+{{#if loading}}
+      <p class="p-6 text-sm text-slate-500">Loading…</p>
+{{/if}}
+
+{{#if not loading}}
+{{#if visible.length is 0}}
+      <div class="p-10 text-center">
+        <h3 class="font-medium mb-1.5">Nothing here</h3>
+        <p class="text-sm text-slate-500">No releases match these filters.</p>
+      </div>
+{{/if}}
+{{/if}}
+
+{{#each e in visible}}
+      <div class="flex items-start gap-4 px-5 py-4 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+            <span class="text-sm font-medium">{{ e.productName }}</span>
+            <span class="font-mono text-xs text-slate-500">v{{ e.version }}</span>
+            <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {{ e.badge }}">{{ e.category }}</span>
+            <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {{ e.stateClass }}">{{ e.stateText }}</span>
+          </div>
+          <p class="text-sm text-slate-800 dark:text-slate-200">{{ e.title }}</p>
+          <p class="text-xs text-slate-500 mt-1 truncate">{{ e.preview }}</p>
+          <p class="text-xs text-slate-400 mt-1">{{ e.whenLabel }}</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button onclick="{{ openEdit(e) }}" class="text-sm text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Edit</button>
+          <button onclick="{{ remove(e) }}" class="text-sm text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 px-2.5 py-1 rounded-md transition-colors">Delete</button>
+        </div>
+      </div>
+{{/each}}
+    </section>
+{{/if}}
+
+  </main>
+{{/if}}
+
+{{#if not checkedAuth}}
+  <p class="px-6 py-16 text-center text-sm text-slate-500">Loading…</p>
+{{/if}}

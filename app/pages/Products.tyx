@@ -1,0 +1,298 @@
+page Products
+
+title "Products"
+
+needs
+  Auth
+
+meta
+  transition "fade"
+
+state
+  checkedAuth: false
+  forbidden: false
+  loading: true
+  listError: ""
+  products: []
+  editorOpen: false
+  editingId: 0
+  fName: ""
+  fSlug: ""
+  fUrl: ""
+  fDesc: ""
+  fActive: true
+  errors: {}
+  formError: ""
+  saving: false
+
+action
+  setField(field, value) {
+    this[field] = value
+  }
+
+  toggleActive() {
+    this.fActive = not this.fActive
+  }
+
+  errorsOf(raw) {
+    return Object.fromEntries(Object.keys(raw).map((k) => [k, raw[k][0]]))
+  }
+
+  resetForm() {
+    this.fName = ""
+    this.fSlug = ""
+    this.fUrl = ""
+    this.fDesc = ""
+    this.fActive = true
+    this.errors = {}
+    this.formError = ""
+  }
+
+  openNew() {
+    this.resetForm()
+    this.editingId = 0
+    this.editorOpen = true
+  }
+
+  openEdit(p) {
+    this.resetForm()
+    this.editingId = p.id
+    this.fName = p.name
+    this.fSlug = p.slug
+    this.fUrl = p.website_url ?? ""
+    this.fDesc = p.description ?? ""
+    this.fActive = p.is_active
+    this.editorOpen = true
+  }
+
+  closeEditor() {
+    this.editorOpen = false
+    this.editingId = 0
+    this.resetForm()
+  }
+
+  decorate(p, entries) {
+    return Object.assign({}, p, {
+      entryCount: entries.filter((e) => e.product_id is p.id).length
+    })
+  }
+
+  async load() {
+    const results = await Promise.all([
+      useApi("/api/admin/products"),
+      useApi("/api/admin/changelog")
+    ])
+    const productRes = results[0]
+    const entryRes = results[1]
+
+    if productRes.status is 403 {
+      this.forbidden = true
+      return null
+    }
+    if not productRes.ok {
+      this.listError = "Couldn't load products."
+      return null
+    }
+
+    const entries = entryRes.ok and Array.isArray(entryRes.data) ? entryRes.data : []
+    this.products = productRes.data.map((p) => this.decorate(p, entries))
+    this.listError = ""
+  }
+
+  async save() {
+    if this.saving {
+      return null
+    }
+
+    this.saving = true
+    this.errors = {}
+    this.formError = ""
+
+    const isNew = this.editingId is 0
+    const body = {
+      name: this.fName,
+      slug: this.fSlug,
+      website_url: this.fUrl,
+      description: this.fDesc,
+      is_active: this.fActive
+    }
+    const path = isNew ? "/api/admin/products" : "/api/admin/products/" + this.editingId
+    const result = await useApi(path, { method: isNew ? "POST" : "PUT", body: body })
+
+    this.saving = false
+
+    if result.ok {
+      this.closeEditor()
+      await this.load()
+      return null
+    }
+
+    const raw = result.data?.errors
+    if raw {
+      this.errors = this.errorsOf(raw)
+    } else {
+      this.formError = result.data?.error ?? result.error ?? "Could not save the product."
+    }
+  }
+
+  async remove(p) {
+    if not confirm("Delete " + p.name + "?") {
+      return null
+    }
+
+    this.listError = ""
+    const result = await useApi("/api/admin/products/" + p.id, { method: "DELETE" })
+
+    if result.ok {
+      if this.editingId is p.id {
+        this.closeEditor()
+      }
+      await this.load()
+    } else {
+      this.listError = result.data?.error ?? result.error ?? "Could not delete the product."
+    }
+  }
+
+onMount
+  async {
+    if not Auth.user {
+      window.location.href = "/login"
+      return null
+    }
+
+    await this.load()
+    this.loading = false
+    this.checkedAuth = true
+
+    if window.location.search.includes("new=1") {
+      this.openNew()
+    }
+  }
+
+template
+{{#if checkedAuth}}
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+{{#if forbidden}}
+    <div class="rounded-xl border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-6">
+      <h1 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">You don't have access to the Hub</h1>
+      <p class="text-sm text-amber-700 dark:text-amber-400">Your account isn't listed in HUB_ADMINS, or its email isn't verified yet.</p>
+    </div>
+{{/if}}
+
+{{#if not forbidden}}
+    <div class="flex items-end justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Products</h1>
+        <p class="text-sm text-slate-500 mt-1">Every site that reads from the Hub is a product here.</p>
+      </div>
+      <button onclick="{{ openNew() }}" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">Add product</button>
+    </div>
+
+{{#if listError}}
+    <p role="alert" class="text-sm text-rose-600 dark:text-rose-400 mb-4">{{ listError }}</p>
+{{/if}}
+
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
+
+      <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
+{{#if loading}}
+        <p class="p-6 text-sm text-slate-500">Loading…</p>
+{{/if}}
+
+{{#if not loading}}
+{{#if products.length is 0}}
+        <div class="p-10 text-center">
+          <h3 class="font-medium mb-1.5">No products yet</h3>
+          <p class="text-sm text-slate-500">Add Tylix Deploy first, then the Tylix framework.</p>
+        </div>
+{{/if}}
+{{/if}}
+
+{{#each p in products}}
+        <div class="flex items-center gap-4 px-5 py-4 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <p class="font-medium truncate">{{ p.name }}</p>
+{{#if p.is_active}}
+              <span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">Active</span>
+{{/if}}
+{{#if not p.is_active}}
+              <span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-slate-500/10 text-slate-600 dark:text-slate-400">Hidden</span>
+{{/if}}
+            </div>
+            <p class="font-mono text-xs text-slate-500 truncate mt-0.5">{{ p.slug }}{{ p.website_url ? ' · ' + p.website_url : '' }}</p>
+          </div>
+          <span class="hidden sm:inline text-xs text-slate-500 shrink-0">{{ p.entryCount is 1 ? '1 entry' : p.entryCount + ' entries' }}</span>
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="{{ openEdit(p) }}" class="text-sm text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Edit</button>
+            <button onclick="{{ remove(p) }}" class="text-sm text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 px-2.5 py-1 rounded-md transition-colors">Delete</button>
+          </div>
+        </div>
+{{/each}}
+      </section>
+
+      <aside class="lg:sticky lg:top-6">
+{{#if not editorOpen}}
+        <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-6">
+          <h2 class="text-sm font-semibold mb-1">Product editor</h2>
+          <p class="text-sm text-slate-500">Pick a product to edit, or add a new one.</p>
+        </div>
+{{/if}}
+
+{{#if editorOpen}}
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold">{{ editingId is 0 ? 'New product' : 'Edit product' }}</h2>
+            <button onclick="{{ closeEditor() }}" class="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Close</button>
+          </div>
+
+{{#if formError}}
+          <p role="alert" class="rounded-md border border-rose-300 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-sm text-rose-700 dark:text-rose-400 mb-4">{{ formError }}</p>
+{{/if}}
+
+          <label for="p-name" class="block text-xs font-medium text-slate-500 mb-1.5">Name</label>
+          <input id="p-name" type="text" placeholder="Tylix Deploy" value="{{ fName }}" oninput="{{ setField('fName', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+{{#if errors.name}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.name }}</p>
+{{/if}}
+
+          <label for="p-slug" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">Slug</label>
+          <input id="p-slug" type="text" placeholder="tylix-deploy" disabled="{{ editingId is not 0 }}" value="{{ fSlug }}" oninput="{{ setField('fSlug', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 disabled:opacity-60" />
+          <p class="text-xs text-slate-500 mt-1">Part of the public API address. It can't be changed later.</p>
+{{#if errors.slug}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.slug }}</p>
+{{/if}}
+
+          <label for="p-url" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">Website</label>
+          <input id="p-url" type="text" placeholder="https://deploy.ashmif.com" value="{{ fUrl }}" oninput="{{ setField('fUrl', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+{{#if errors.website_url}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.website_url }}</p>
+{{/if}}
+
+          <label for="p-desc" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">Description</label>
+          <textarea id="p-desc" rows="3" value="{{ fDesc }}" oninput="{{ setField('fDesc', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"></textarea>
+{{#if errors.description}}
+          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.description }}</p>
+{{/if}}
+
+          <label class="flex items-center gap-2 mt-4 text-sm text-slate-600 dark:text-slate-300">
+            <input type="checkbox" checked="{{ fActive }}" onclick="{{ toggleActive() }}" class="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500" />
+            Visible in the public API
+          </label>
+
+          <button onclick="{{ save() }}" disabled="{{ saving }}" class="mt-5 w-full bg-indigo-600 text-white rounded-md py-2 text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {{ saving ? 'Saving…' : 'Save product' }}
+          </button>
+        </div>
+{{/if}}
+      </aside>
+    </div>
+{{/if}}
+
+  </main>
+{{/if}}
+
+{{#if not checkedAuth}}
+  <p class="px-6 py-16 text-center text-sm text-slate-500">Loading…</p>
+{{/if}}
