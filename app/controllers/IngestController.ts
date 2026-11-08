@@ -4,7 +4,8 @@
  * Sites push to the Hub here, authenticated by their product's API key:
  *   POST /api/v1/ingest/heartbeat  { version?: string }
  *   POST /api/v1/ingest/events     { type, message?, meta?, at? }
- *   POST /api/v1/ingest/metrics    { users_total, users_active, active_days? }
+ *   POST /api/v1/ingest/metrics    { users_total, users_active, active_days?,
+ *                                    tenants_total?, tenants_active?, tenant_label? }
  */
 
 import crypto from "node:crypto";
@@ -13,13 +14,14 @@ import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 import { StatusEvent } from "../models/StatusEvent.js";
 import { recordBeat } from "../services/Uptime.js";
-import { recordMetrics } from "../services/Metrics.js";
+import { recordMetrics, type TenantInput } from "../services/Metrics.js";
 
 const EVENT_TYPES = ["deploy.started", "deploy.succeeded", "deploy.failed", "server.unreachable", "server.recovered"] as const;
 
 const limiter = createRateLimiter({ max: 120, windowMs: 60_000 });
 
 const MAX_COUNT = 1_000_000_000;
+const MAX_LABEL = 30;
 
 function bearer(req: TylixRequest): string {
     const h = (req as any).headers?.authorization ?? (req as any).headers?.Authorization ?? "";
@@ -103,7 +105,10 @@ export class IngestController {
         return res.json({ ok: true });
     }
 
-    /** A product reports how many users it has and how many are active. */
+    /**
+     * A product reports how many users it has and how many are active.
+     * Multi-tenant products can add the same for their tenants.
+     */
     async metrics(req: TylixRequest, res: TylixResponse) {
         const key = await authenticate(req, res);
         if (!key) return;
@@ -119,6 +124,24 @@ export class IngestController {
         else if (total !== null && active > total) errors.users_active = ["users_active can't be more than users_total."];
         if (activeDays === null) errors.active_days = ["active_days must be a whole number from 1 to 365."];
 
+        // Tenant numbers are optional, but if one is sent the other is needed too.
+        let tenants: TenantInput | undefined;
+        if (req.body?.tenants_total !== undefined || req.body?.tenants_active !== undefined) {
+            const tTotal = wholeNumber(req.body?.tenants_total, 0, MAX_COUNT);
+            const tActive = wholeNumber(req.body?.tenants_active, 0, MAX_COUNT);
+
+            if (tTotal === null) errors.tenants_total = ["tenants_total must be a whole number, 0 or more."];
+            if (tActive === null) errors.tenants_active = ["tenants_active must be a whole number, 0 or more."];
+            else if (tTotal !== null && tActive > tTotal) errors.tenants_active = ["tenants_active can't be more than tenants_total."];
+
+            const rawLabel = typeof req.body?.tenant_label === "string" ? req.body.tenant_label.trim() : "";
+            const label = rawLabel === "" ? "Tenants" : rawLabel.slice(0, MAX_LABEL);
+
+            if (tTotal !== null && tActive !== null) {
+                tenants = { tenants_total: tTotal, tenants_active: tActive, label };
+            }
+        }
+
         if (Object.keys(errors).length > 0) {
             res.status(422);
             return res.json({ errors });
@@ -128,6 +151,7 @@ export class IngestController {
             users_total: total as number,
             users_active: active as number,
             active_days: activeDays as number,
+            tenants,
         });
 
         res.status(204);

@@ -197,16 +197,36 @@ template
         </div>
 
 {{#if p.metrics}}
-        <div class="flex items-end gap-8 mt-4">
+        <div class="flex flex-wrap items-end gap-x-10 gap-y-4 mt-4">
+{{#if p.metrics.tenants}}
           <div>
-            <p class="text-2xl font-semibold tabular-nums">{{ p.metrics.users_total }}</p>
-            <p class="text-xs text-slate-500">Users</p>
+            <p class="text-xs font-medium text-slate-500 mb-1">{{ p.metrics.tenants.label }}</p>
+            <div class="flex items-end gap-5">
+              <div>
+                <p class="text-2xl font-semibold tabular-nums">{{ p.metrics.tenants.total }}</p>
+                <p class="text-xs text-slate-500">Total</p>
+              </div>
+              <div>
+                <p class="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ p.metrics.tenants.active }}</p>
+                <p class="text-xs text-slate-500">Active</p>
+              </div>
+            </div>
           </div>
+{{/if}}
           <div>
-            <p class="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ p.metrics.users_active }}</p>
-            <p class="text-xs text-slate-500">Active, last {{ p.metrics.active_days }} days</p>
+            <p class="text-xs font-medium text-slate-500 mb-1">Users</p>
+            <div class="flex items-end gap-5">
+              <div>
+                <p class="text-2xl font-semibold tabular-nums">{{ p.metrics.users_total }}</p>
+                <p class="text-xs text-slate-500">Total</p>
+              </div>
+              <div>
+                <p class="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ p.metrics.users_active }}</p>
+                <p class="text-xs text-slate-500">Active</p>
+              </div>
+            </div>
           </div>
-          <p class="ml-auto text-xs text-slate-400">Updated {{ p.metricsAgo }}</p>
+          <p class="ml-auto text-xs text-slate-400">Active means signed in during the last {{ p.metrics.active_days }} days. Updated {{ p.metricsAgo }}.</p>
         </div>
 {{/if}}
 

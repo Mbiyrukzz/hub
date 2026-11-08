@@ -4,20 +4,19 @@
  *   GET /api/admin/status
  *
  * Per product: is it reporting, which version, when it was last seen, its
- * uptime for the last 90 days, the latest user numbers it reported, plus the
- * latest reported events. A product counts as online if it sent a heartbeat
- * inside the online window.
+ * uptime for the last 90 days, the latest user and tenant numbers it
+ * reported, plus the latest reported events. A product counts as online if
+ * it sent a heartbeat inside the online window.
  */
 
 import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { Product, type ProductAttributes } from "../models/Product.js";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 import { StatusEvent, type StatusEventAttributes } from "../models/StatusEvent.js";
-import type { ProductMetricAttributes } from "../models/ProductMetric.js";
 import { requireHubAdmin } from "../services/AdminGate.js";
 import { instantOf, isoOf } from "../services/ChangelogService.js";
 import { ONLINE_WINDOW_MS, uptimeFor } from "../services/Uptime.js";
-import { latestMetrics } from "../services/Metrics.js";
+import { latestMetrics, type MetricsSnapshot } from "../services/Metrics.js";
 
 function stateOf(key: ProductApiKeyAttributes | undefined): string {
     if (!key) return "no_key";
@@ -45,12 +44,11 @@ export class StatusController {
         const uptimes = await Promise.all(
             products.map((p) => uptimeFor(p.id, keyByProduct.get(p.id)?.last_seen_at, 90).catch(() => null)),
         );
-        const metricsByProduct = await latestMetrics().catch(() => new Map<number, ProductMetricAttributes>());
+        const metricsByProduct = await latestMetrics().catch(() => new Map<number, MetricsSnapshot>());
 
         return res.json({
             products: products.map((p, i) => {
                 const key = keyByProduct.get(p.id);
-                const m = metricsByProduct.get(p.id);
                 return {
                     id: p.id,
                     name: p.name,
@@ -59,14 +57,7 @@ export class StatusController {
                     last_seen_at: isoOf(key?.last_seen_at),
                     last_version: key?.last_version ?? "",
                     uptime: uptimes[i],
-                    metrics: m
-                        ? {
-                              users_total: Number(m.users_total),
-                              users_active: Number(m.users_active),
-                              active_days: Number(m.active_days),
-                              reported_at: m.reported_at,
-                          }
-                        : null,
+                    metrics: metricsByProduct.get(p.id) ?? null,
                 };
             }),
             events: events.slice(0, 50).map((e) => ({
