@@ -4,6 +4,7 @@
  * Sites push to the Hub here, authenticated by their product's API key:
  *   POST /api/v1/ingest/heartbeat  { version?: string }
  *   POST /api/v1/ingest/events     { type, message?, meta?, at? }
+ *   POST /api/v1/ingest/metrics    { users_total, users_active, active_days? }
  */
 
 import crypto from "node:crypto";
@@ -12,10 +13,13 @@ import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 import { StatusEvent } from "../models/StatusEvent.js";
 import { recordBeat } from "../services/Uptime.js";
+import { recordMetrics } from "../services/Metrics.js";
 
 const EVENT_TYPES = ["deploy.started", "deploy.succeeded", "deploy.failed", "server.unreachable", "server.recovered"] as const;
 
 const limiter = createRateLimiter({ max: 120, windowMs: 60_000 });
+
+const MAX_COUNT = 1_000_000_000;
 
 function bearer(req: TylixRequest): string {
     const h = (req as any).headers?.authorization ?? (req as any).headers?.Authorization ?? "";
@@ -47,6 +51,11 @@ async function authenticate(req: TylixRequest, res: TylixResponse): Promise<Prod
         return null;
     }
     return row;
+}
+
+function wholeNumber(value: unknown, min: number, max: number): number | null {
+    const n = typeof value === "number" ? value : Number.NaN;
+    return Number.isInteger(n) && n >= min && n <= max ? n : null;
 }
 
 export class IngestController {
@@ -92,5 +101,36 @@ export class IngestController {
 
         res.status(201);
         return res.json({ ok: true });
+    }
+
+    /** A product reports how many users it has and how many are active. */
+    async metrics(req: TylixRequest, res: TylixResponse) {
+        const key = await authenticate(req, res);
+        if (!key) return;
+
+        const errors: Record<string, string[]> = {};
+
+        const total = wholeNumber(req.body?.users_total, 0, MAX_COUNT);
+        const active = wholeNumber(req.body?.users_active, 0, MAX_COUNT);
+        const activeDays = wholeNumber(req.body?.active_days ?? 30, 1, 365);
+
+        if (total === null) errors.users_total = ["users_total must be a whole number, 0 or more."];
+        if (active === null) errors.users_active = ["users_active must be a whole number, 0 or more."];
+        else if (total !== null && active > total) errors.users_active = ["users_active can't be more than users_total."];
+        if (activeDays === null) errors.active_days = ["active_days must be a whole number from 1 to 365."];
+
+        if (Object.keys(errors).length > 0) {
+            res.status(422);
+            return res.json({ errors });
+        }
+
+        await recordMetrics(key.product_id, {
+            users_total: total as number,
+            users_active: active as number,
+            active_days: activeDays as number,
+        });
+
+        res.status(204);
+        return res.end();
     }
 }

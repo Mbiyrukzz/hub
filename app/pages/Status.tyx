@@ -126,7 +126,8 @@ action
       dot: this.stateDot(p.state),
       seen: this.ago(p.last_seen_at),
       bars: this.barsOf(p.uptime),
-      uptimeLabel: this.uptimeText(p.uptime)
+      uptimeLabel: this.uptimeText(p.uptime),
+      metricsAgo: p.metrics ? this.ago(p.metrics.reported_at) : ""
     }))
     this.events = res.data.events.map((e) => Object.assign({}, e, {
       badge: this.eventBadge(e.type),
@@ -195,8 +196,22 @@ template
           </div>
         </div>
 
+{{#if p.metrics}}
+        <div class="flex items-end gap-8 mt-4">
+          <div>
+            <p class="text-2xl font-semibold tabular-nums">{{ p.metrics.users_total }}</p>
+            <p class="text-xs text-slate-500">Users</p>
+          </div>
+          <div>
+            <p class="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ p.metrics.users_active }}</p>
+            <p class="text-xs text-slate-500">Active, last {{ p.metrics.active_days }} days</p>
+          </div>
+          <p class="ml-auto text-xs text-slate-400">Updated {{ p.metricsAgo }}</p>
+        </div>
+{{/if}}
+
 {{#if p.bars.length > 0}}
-        <div class="flex gap-px h-7 mt-3" role="img" aria-label="Daily uptime for the last 90 days">
+        <div class="flex gap-px h-7 mt-4" role="img" aria-label="Daily uptime for the last 90 days">
 {{#each b in p.bars}}
           <span title="{{ b.title }}" class="flex-1 rounded-[2px] {{ b.cls }}"></span>
 {{/each}}

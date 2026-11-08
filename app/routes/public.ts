@@ -11,6 +11,7 @@
  * Authenticated by a product's API key (see IngestController):
  *   POST /api/v1/ingest/heartbeat
  *   POST /api/v1/ingest/events
+ *   POST /api/v1/ingest/metrics
  */
 
 import type { Router } from "@tylix/core";
@@ -26,6 +27,7 @@ export async function routes(router: Router) {
 
     router.post("/api/v1/ingest/heartbeat", (req, res) => ingest.heartbeat(req, res));
     router.post("/api/v1/ingest/events", (req, res) => ingest.event(req, res));
+    router.post("/api/v1/ingest/metrics", (req, res) => ingest.metrics(req, res));
 
     router.get("/api/v1/products", (req, res) => pub.products(req, res));
     router.get("/api/v1/products/:slug/changelog", (req, res) => pub.changelog(req, res));
