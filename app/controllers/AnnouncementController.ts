@@ -10,7 +10,8 @@ import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { Announcement, type AnnouncementAttributes } from "../models/Announcement.js";
 import { Product } from "../models/Product.js";
 import { validateAnnouncement, normalizeAnnouncement } from "../validators/AnnouncementValidator.js";
-import { requireHubAdmin } from "../services/AdminGate.js";
+import { requireHub } from "../services/AdminGate.js";
+import { audit, changedFields } from "../services/Audit.js";
 import { isoOf, storeInstant } from "../services/ChangelogService.js";
 import { adminPhaseOf, toAdminAnnouncement } from "../services/AnnouncementService.js";
 
@@ -27,14 +28,14 @@ async function findRow(req: TylixRequest, res: TylixResponse): Promise<Announcem
 export class AnnouncementController {
     /** Newest first, drafts and ended ones included. */
     async index(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "announcements.view"))) return;
 
         const rows = (await Announcement.query().orderBy("created_at", "DESC").get()) as AnnouncementAttributes[];
         return res.json(rows.map(toAdminAnnouncement));
     }
 
     async show(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "announcements.view"))) return;
 
         const row = await findRow(req, res);
         if (!row) return;
@@ -43,7 +44,7 @@ export class AnnouncementController {
     }
 
     async store(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "announcements.manage"))) return;
 
         const result = validateAnnouncement(req.body);
         if (!result.valid) {
@@ -77,12 +78,16 @@ export class AnnouncementController {
             return res.json({ error: "Could not save the announcement." });
         }
 
+        await audit(req, "announcement.created", {
+            target: ["announcement", row.id],
+            summary: `Posted ${row.kind} "${row.title}" (${row.status})`,
+        });
         res.status(201);
         return res.json(toAdminAnnouncement(row));
     }
 
     async update(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "announcements.manage"))) return;
 
         const row = await findRow(req, res);
         if (!row) return;
@@ -121,13 +126,17 @@ export class AnnouncementController {
             res.status(500);
             return res.json({ error: "Could not reload the announcement after saving." });
         }
+        const changed = changedFields(row, fresh, ["product_id", "kind", "title", "body", "status", "starts_at", "ends_at"]);
+        if (changed.length > 0) {
+            await audit(req, "announcement.updated", { target: ["announcement", row.id], summary: `Edited "${fresh.title}"`, meta: { changed } });
+        }
 
         return res.json(toAdminAnnouncement(fresh));
     }
 
     /** Ends an active announcement now. */
     async resolve(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "announcements.manage"))) return;
 
         const row = await findRow(req, res);
         if (!row) return;
@@ -145,6 +154,7 @@ export class AnnouncementController {
 
         if (phase === "active") {
             await Announcement.update(row.id, { ends_at: storeInstant(new Date().toISOString()) });
+            await audit(req, "announcement.resolved", { target: ["announcement", row.id], summary: `Resolved "${row.title}"` });
         }
 
         const fresh = (await Announcement.find(row.id)) as AnnouncementAttributes | null;
@@ -157,12 +167,13 @@ export class AnnouncementController {
     }
 
     async destroy(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "announcements.manage"))) return;
 
         const row = await findRow(req, res);
         if (!row) return;
 
         await Announcement.delete(row.id);
+        await audit(req, "announcement.deleted", { target: ["announcement", row.id], summary: `Deleted "${row.title}"` });
 
         res.status(204);
         return res.end();

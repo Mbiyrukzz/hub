@@ -1,6 +1,6 @@
 /**
  * Sends the "product is down" and "product is back" emails to everyone
- * listed in HUB_ADMINS.
+ * whose role grants alerts.receive (admin, on-call), plus HUB_ADMINS.
  *
  * ProductWatch runs outside any request, so it can't be handed the mail
  * settings the way AuthController is. They are read from the same MAIL_*
@@ -9,7 +9,8 @@
 
 import type { MailConfig } from "@tylix/mail";
 import { ProductAlertMail } from "./ProductAlertMail.js";
-import { hubAdminEmails } from "../services/AdminGate.js";
+import { Log } from "@tylix/core";
+import { alertRecipients } from "../services/AdminGate.js";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -40,8 +41,12 @@ function nairobiTime(date: Date): string {
 }
 
 export async function sendProductAlert(kind: "down" | "recovered", productName: string, minutes: number): Promise<void> {
-    const to = hubAdminEmails();
-    if (to.length === 0) return;
+    const to = await alertRecipients();
+    if (to.length === 0) {
+        Log.channel("alerts").warning(`${productName} is ${kind}, but nobody has alerts.receive`);
+        return;
+    }
+    Log.channel("alerts").info(`${productName} is ${kind}: alerting ${to.length} people`, { minutes });
 
     const down = kind === "down";
 

@@ -10,6 +10,7 @@
 
 import { Model } from "@tylix/orm";
 import { hashPassword } from "@tylix/auth";
+import { UserObserver } from "../observers/UserObserver.js";
 
 export interface UserAttributes {
     id: number;
@@ -17,21 +18,39 @@ export interface UserAttributes {
     email: string;
     password: string;
     email_verified_at: string | null;
+    two_factor_secret?: string | null;
+    two_factor_confirmed_at?: string | null;
+    two_factor_last_step?: number | string | null;
+    two_factor_recovery_codes?: string | null;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
 }
 
-export type SafeUser = Omit<UserAttributes, "password">;
+// What the browser may see: no password hash and no two-factor secrets,
+// only whether two-factor sign-in is on.
+export type SafeUser = Omit<
+    UserAttributes,
+    "password" | "two_factor_secret" | "two_factor_last_step" | "two_factor_recovery_codes"
+> & { two_factor_enabled: boolean };
 
 export class User extends Model {
     static table = "users";
+
+    // Hooks that run on create/update/delete: see app/observers/UserObserver.
+    static observers = [UserObserver];
 
     static fillable: string[] = [
         "name",
         "email",
         "password",
         "email_verified_at",
+        // Two-factor columns are only written by TwoFactorController and the
+        // sign-in check, never from a request body.
+        "two_factor_secret",
+        "two_factor_confirmed_at",
+        "two_factor_last_step",
+        "two_factor_recovery_codes",
     ];
 
     static async all(): Promise<UserAttributes[]> {
@@ -70,9 +89,19 @@ export class User extends Model {
         return Boolean(user?.email_verified_at);
     }
 
+    static hasTwoFactor(user: UserAttributes | null | undefined): boolean {
+        return Boolean(user?.two_factor_secret && user?.two_factor_confirmed_at);
+    }
+
     static toSafeObject(user: UserAttributes | null): SafeUser | null {
         if (!user) return null;
-        const { password, ...safe } = user;
-        return safe;
+        const {
+            password: _password,
+            two_factor_secret: _secret,
+            two_factor_last_step: _step,
+            two_factor_recovery_codes: _codes,
+            ...safe
+        } = user;
+        return { ...safe, two_factor_enabled: User.hasTwoFactor(user) };
     }
 }

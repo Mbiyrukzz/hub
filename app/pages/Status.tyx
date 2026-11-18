@@ -1,5 +1,7 @@
 page Status
 
+import { IconDownload } from "tylix-icons"
+
 title "Status"
 
 needs
@@ -15,6 +17,11 @@ state
   error: ""
   products: []
   events: []
+
+computed
+  onlineCount() {
+    return this.products.filter((p) => p.state is "online").length
+  }
 
 action
   ago(value) {
@@ -47,29 +54,39 @@ action
     return "No API key"
   }
 
+  stateBadge(s) {
+    if s is "online" {
+      return "badge-green"
+    }
+    if s is "offline" {
+      return "badge-red"
+    }
+    return "badge-gray"
+  }
+
   stateDot(s) {
     if s is "online" {
       return "bg-emerald-500"
     }
     if s is "offline" {
-      return "bg-rose-500"
+      return "bg-red-500"
     }
-    return "bg-slate-400"
+    return "bg-zinc-400"
   }
 
   eventBadge(type) {
     if type is "deploy.succeeded" or type is "server.recovered" or type is "product.recovered" {
-      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+      return "badge-green"
     }
     if type is "deploy.failed" or type is "server.unreachable" or type is "product.down" {
-      return "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+      return "badge-red"
     }
-    return "bg-slate-500/10 text-slate-600 dark:text-slate-400"
+    return "badge-gray"
   }
 
   barClass(d) {
     if d.uptime_percent is null {
-      return "bg-slate-200 dark:bg-slate-800"
+      return "bg-zinc-200 dark:bg-zinc-800"
     }
     if d.uptime_percent >= 99.9 {
       return "bg-emerald-500"
@@ -77,7 +94,7 @@ action
     if d.uptime_percent >= 99 {
       return "bg-amber-400"
     }
-    return "bg-rose-500"
+    return "bg-red-500"
   }
 
   barTitle(d) {
@@ -124,6 +141,7 @@ action
     this.products = res.data.products.map((p) => Object.assign({}, p, {
       label: this.stateLabel(p.state),
       dot: this.stateDot(p.state),
+      badgeCls: this.stateBadge(p.state),
       seen: this.ago(p.last_seen_at),
       bars: this.barsOf(p.uptime),
       uptimeLabel: this.uptimeText(p.uptime),
@@ -155,118 +173,143 @@ onMount
 
 template
 {{#if checkedAuth}}
-  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+  <div class="page">
 
 {{#if forbidden}}
-    <div class="rounded-xl border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-6">
-      <h1 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">You don't have access to the Hub</h1>
-      <p class="text-sm text-amber-700 dark:text-amber-400">Your account isn't listed in HUB_ADMINS, or its email isn't verified yet.</p>
+    <div class="alert alert-warning max-w-2xl">
+      <h1 class="alert-title">You don't have access to the Hub</h1>
+      <p>Your account doesn't have a role that opens this page, or its email isn't verified yet. Ask a Hub admin for access.</p>
     </div>
 {{/if}}
 
 {{#if not forbidden}}
-    <div class="flex items-end justify-between gap-4 mb-6">
+    <div class="page-header">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Status</h1>
-        <p class="text-sm text-slate-500 mt-1">Products report in with a heartbeat every minute. No heartbeat for 3 minutes counts as down.</p>
+        <h1 class="page-title">Status</h1>
+        <p class="page-desc">Products report in with a heartbeat every minute. No heartbeat for 3 minutes counts as down.</p>
       </div>
-      <button onclick="{{ refresh() }}" disabled="{{ loading }}" class="text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3.5 py-2 hover:bg-white dark:hover:bg-slate-800 transition-colors disabled:opacity-50">{{ loading ? 'Refreshing…' : 'Refresh' }}</button>
+      <div class="page-actions">
+        <a href="/api/admin/status/export?format=pdf&days=30" title="30-day uptime report as a PDF" class="btn btn-secondary"><IconDownload /> PDF</a>
+        <a href="/api/admin/status/export?format=xlsx&days=90" title="90 days of daily uptime, one sheet per product" class="btn btn-secondary"><IconDownload /> Excel</a>
+        <button onclick="{{ refresh() }}" disabled="{{ loading }}" class="btn btn-secondary">{{ loading ? 'Refreshing…' : 'Refresh' }}</button>
+      </div>
     </div>
 
 {{#if error}}
-    <p role="alert" class="text-sm text-rose-600 dark:text-rose-400 mb-4">{{ error }}</p>
+    <p role="alert" class="alert alert-error mb-6">{{ error }}</p>
 {{/if}}
 
-    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden mb-8">
+{{#if products.length > 0}}
+{{#if onlineCount is products.length}}
+    <div class="card flex items-center gap-3 px-5 py-4 mb-6">
+      <span class="dot bg-emerald-500"></span>
+      <p class="text-sm font-medium">All products are reporting in</p>
+      <p class="meta ml-auto">{{ onlineCount }} of {{ products.length }} online</p>
+    </div>
+{{#else}}
+    <div class="card flex items-center gap-3 px-5 py-4 mb-6">
+      <span class="dot bg-amber-400"></span>
+      <p class="text-sm font-medium">{{ products.length - onlineCount }} of {{ products.length }} products need attention</p>
+      <p class="meta ml-auto">{{ onlineCount }} online</p>
+    </div>
+{{/if}}
+{{/if}}
+
 {{#if products.length is 0}}
-      <p class="p-6 text-sm text-slate-500">No products yet.</p>
+    <div class="card empty mb-8">
+      <h3 class="empty-title">No products yet</h3>
+      <p class="empty-text">Add a product and give it a reporting key to see its heartbeat here.</p>
+    </div>
 {{/if}}
 
+    <div class="space-y-4 mb-10">
 {{#each p in products}}
-      <div class="px-5 py-4 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
-        <div class="flex items-center gap-4">
-          <span class="w-2.5 h-2.5 rounded-full shrink-0 {{ p.dot }}"></span>
+      <section class="card p-5">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div class="min-w-0 flex-1">
-            <p class="font-medium truncate">{{ p.name }}</p>
-            <p class="text-xs text-slate-500 mt-0.5">{{ p.label }}</p>
+            <div class="flex items-center gap-2">
+              <h2 class="font-semibold truncate">{{ p.name }}</h2>
+              <span class="badge {{ p.badgeCls }}"><span class="dot w-1.5 h-1.5 {{ p.dot }}"></span>{{ p.label }}</span>
+            </div>
           </div>
-          <div class="text-right shrink-0">
-            <p class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ p.last_version ? 'v' + p.last_version : '—' }}</p>
-            <p class="text-xs text-slate-500 mt-0.5">Last seen: {{ p.seen }}</p>
+          <div class="flex items-center gap-4 text-right shrink-0">
+            <div>
+              <p class="meta">Version</p>
+              <p class="font-mono text-xs font-medium mt-0.5">{{ p.last_version ? 'v' + p.last_version : '—' }}</p>
+            </div>
+            <div>
+              <p class="meta">Last seen</p>
+              <p class="text-xs font-medium mt-0.5">{{ p.seen }}</p>
+            </div>
           </div>
         </div>
 
 {{#if p.metrics}}
-        <div class="flex flex-wrap items-end gap-x-10 gap-y-4 mt-4">
+        <div class="{{ p.metrics.tenants ? 'grid grid-cols-2 sm:grid-cols-4' : 'grid grid-cols-2' }} gap-px mt-5 rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800">
 {{#if p.metrics.tenants}}
-          <div>
-            <p class="text-xs font-medium text-slate-500 mb-1">{{ p.metrics.tenants.label }}</p>
-            <div class="flex items-end gap-5">
-              <div>
-                <p class="text-2xl font-semibold tabular-nums">{{ p.metrics.tenants.total }}</p>
-                <p class="text-xs text-slate-500">Total</p>
-              </div>
-              <div>
-                <p class="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ p.metrics.tenants.active }}</p>
-                <p class="text-xs text-slate-500">Active</p>
-              </div>
-            </div>
+          <div class="bg-zinc-50 dark:bg-zinc-950 px-4 py-3">
+            <p class="meta">{{ p.metrics.tenants.label }} · total</p>
+            <p class="text-xl font-semibold tabular-nums mt-0.5">{{ p.metrics.tenants.total }}</p>
+          </div>
+          <div class="bg-zinc-50 dark:bg-zinc-950 px-4 py-3">
+            <p class="meta">{{ p.metrics.tenants.label }} · active</p>
+            <p class="text-xl font-semibold tabular-nums mt-0.5">{{ p.metrics.tenants.active }}</p>
           </div>
 {{/if}}
-          <div>
-            <p class="text-xs font-medium text-slate-500 mb-1">Users</p>
-            <div class="flex items-end gap-5">
-              <div>
-                <p class="text-2xl font-semibold tabular-nums">{{ p.metrics.users_total }}</p>
-                <p class="text-xs text-slate-500">Total</p>
-              </div>
-              <div>
-                <p class="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ p.metrics.users_active }}</p>
-                <p class="text-xs text-slate-500">Active</p>
-              </div>
-            </div>
+          <div class="bg-zinc-50 dark:bg-zinc-950 px-4 py-3">
+            <p class="meta">Users · total</p>
+            <p class="text-xl font-semibold tabular-nums mt-0.5">{{ p.metrics.users_total }}</p>
           </div>
-          <p class="ml-auto text-xs text-slate-400">Active means signed in during the last {{ p.metrics.active_days }} days. Updated {{ p.metricsAgo }}.</p>
+          <div class="bg-zinc-50 dark:bg-zinc-950 px-4 py-3">
+            <p class="meta">Users · active</p>
+            <p class="text-xl font-semibold tabular-nums mt-0.5">{{ p.metrics.users_active }}</p>
+          </div>
         </div>
+        <p class="meta mt-2">Active means signed in during the last {{ p.metrics.active_days }} days. Updated {{ p.metricsAgo }}.</p>
 {{/if}}
 
 {{#if p.bars.length > 0}}
-        <div class="flex gap-px h-7 mt-4" role="img" aria-label="Daily uptime for the last 90 days">
+        <div class="mt-5">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-medium text-zinc-700 dark:text-zinc-300">Uptime · last 90 days</p>
+            <p class="text-xs font-medium tabular-nums">{{ p.uptimeLabel }}</p>
+          </div>
+          <div class="flex gap-[2px] h-8" role="img" aria-label="Daily uptime for the last 90 days">
 {{#each b in p.bars}}
-          <span title="{{ b.title }}" class="flex-1 rounded-[2px] {{ b.cls }}"></span>
+            <span title="{{ b.title }}" class="flex-1 rounded-sm {{ b.cls }}"></span>
 {{/each}}
-        </div>
-        <div class="flex items-center justify-between text-xs text-slate-500 mt-1.5">
-          <span>90 days ago</span>
-          <span>{{ p.uptimeLabel }}</span>
-          <span>Today</span>
+          </div>
+          <div class="flex items-center justify-between meta mt-1.5">
+            <span>90 days ago</span>
+            <span>Today</span>
+          </div>
         </div>
 {{/if}}
-      </div>
+      </section>
 {{/each}}
-    </section>
+    </div>
 
-    <h2 class="text-sm font-semibold mb-3">Recent events</h2>
-    <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
+    <div class="section-head">
+      <h2 class="section-title">Recent events</h2>
+    </div>
+    <section class="card overflow-hidden">
 {{#if events.length is 0}}
-      <p class="p-6 text-sm text-slate-500">No events reported yet.</p>
+      <p class="px-5 py-10 text-center text-sm text-zinc-500">No events reported yet.</p>
 {{/if}}
 
 {{#each e in events}}
-      <div class="flex items-start gap-4 px-5 py-3 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
-        <span class="rounded px-1.5 py-0.5 text-[11px] font-medium shrink-0 {{ e.badge }}">{{ e.type }}</span>
-        <div class="min-w-0 flex-1">
-          <p class="text-sm"><span class="font-medium">{{ e.productName }}</span>{{ e.message ? ' · ' + e.message : '' }}</p>
-        </div>
-        <span class="text-xs text-slate-500 shrink-0">{{ e.when }}</span>
+      <div class="row-divider flex items-center gap-4 px-5 py-3">
+        <span class="badge font-mono shrink-0 {{ e.badge }}">{{ e.type }}</span>
+        <p class="text-sm min-w-0 flex-1 truncate"><span class="font-medium">{{ e.productName }}</span>{{ e.message ? ' · ' + e.message : '' }}</p>
+        <span class="meta shrink-0">{{ e.when }}</span>
       </div>
 {{/each}}
     </section>
 {{/if}}
 
-  </main>
+  </div>
 {{/if}}
 
 {{#if not checkedAuth}}
-  <p class="px-6 py-16 text-center text-sm text-slate-500">Loading…</p>
+  <p class="page-loading">Loading…</p>
 {{/if}}

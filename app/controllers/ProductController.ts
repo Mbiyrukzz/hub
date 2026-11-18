@@ -9,7 +9,8 @@ import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { Product, type ProductAttributes } from "../models/Product.js";
 import { ChangelogEntry } from "../models/ChangelogEntry.js";
 import { validateProduct, normalizeProduct } from "../validators/ProductValidator.js";
-import { requireHubAdmin } from "../services/AdminGate.js";
+import { requireHub } from "../services/AdminGate.js";
+import { audit, changedFields } from "../services/Audit.js";
 import crypto from "node:crypto";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 
@@ -34,14 +35,14 @@ async function slugTaken(slug: string, exceptId?: number): Promise<boolean> {
 
 export class ProductController {
     async index(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "products.view"))) return;
 
         const rows = (await Product.query().orderBy("name", "ASC").get()) as ProductAttributes[];
         return res.json(rows.map(toApi));
     }
 
     async show(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "products.view"))) return;
 
         const product = await findProduct(req, res);
         if (!product) return;
@@ -50,7 +51,7 @@ export class ProductController {
     }
 
     async store(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "products.manage"))) return;
 
         const result = validateProduct(req.body);
         if (!result.valid) {
@@ -71,12 +72,13 @@ export class ProductController {
             return res.json({ error: "Could not save the product." });
         }
 
+        await audit(req, "product.created", { target: ["product", product.id], summary: `Added product ${product.name}` });
         res.status(201);
         return res.json(toApi(product));
     }
 
     async update(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "products.manage"))) return;
 
         const product = await findProduct(req, res);
         if (!product) return;
@@ -90,6 +92,10 @@ export class ProductController {
         // The slug is deliberately not part of the patch.
         const { name, website_url, description, is_active } = normalizeProduct(req.body);
         await Product.update(product.id, { name, website_url, description, is_active });
+        const changed = changedFields(product, { name, website_url, description, is_active }, ["name", "website_url", "description", "is_active"]);
+        if (changed.length > 0) {
+            await audit(req, "product.updated", { target: ["product", product.id], summary: `Updated product ${name ?? product.name}`, meta: { changed } });
+        }
 
         const fresh = (await Product.find(product.id)) as ProductAttributes | null;
         if (!fresh) {
@@ -101,7 +107,7 @@ export class ProductController {
     }
 
     async destroy(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "products.manage"))) return;
 
         const product = await findProduct(req, res);
         if (!product) return;
@@ -115,6 +121,7 @@ export class ProductController {
         }
 
         await Product.delete(product.id);
+        await audit(req, "product.deleted", { target: ["product", product.id], summary: `Removed product ${product.name}` });
 
         res.status(204);
         return res.end();
@@ -126,7 +133,7 @@ export class ProductController {
 // inside class ProductController:
     /** Creates or replaces the product's ingest key. The raw key is returned once, never stored. */
     async rotateKey(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "products.keys"))) return;
 
         const product = await findProduct(req, res);
         if (!product) return;
@@ -141,6 +148,10 @@ export class ProductController {
             await ProductApiKey.create({ product_id: product.id, key_hash: hash, last_seen_at: "", last_version: "" });
         }
 
+        await audit(req, "product.key_issued", {
+            target: ["product", product.id],
+            summary: `Issued a new reporting key for ${product.name}${existing ? " (the old one stopped working)" : ""}`,
+        });
         return res.json({ key: raw });
     }
 }

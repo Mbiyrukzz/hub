@@ -13,7 +13,7 @@ import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { Product, type ProductAttributes } from "../models/Product.js";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 import { StatusEvent, type StatusEventAttributes } from "../models/StatusEvent.js";
-import { requireHubAdmin } from "../services/AdminGate.js";
+import { requireHub } from "../services/AdminGate.js";
 import { instantOf, isoOf } from "../services/ChangelogService.js";
 import { ONLINE_WINDOW_MS, uptimeFor } from "../services/Uptime.js";
 import { latestMetrics, type MetricsSnapshot } from "../services/Metrics.js";
@@ -28,7 +28,7 @@ function stateOf(key: ProductApiKeyAttributes | undefined): string {
 
 export class StatusController {
     async index(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "status.view"))) return;
 
         const products = (await Product.query().orderBy("name", "ASC").get()) as ProductAttributes[];
         const keys = (await ProductApiKey.query().get()) as ProductApiKeyAttributes[];

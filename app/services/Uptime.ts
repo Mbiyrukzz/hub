@@ -17,6 +17,7 @@
 
 import { UptimeDay, type UptimeDayAttributes } from "../models/UptimeDay.js";
 import { instantOf } from "./ChangelogService.js";
+import { Log } from "@tylix/core";
 
 export const ONLINE_WINDOW_MS = 3 * 60 * 1000;
 
@@ -86,7 +87,7 @@ export async function recordBeat(productId: number, previousSeenAt: unknown, now
             if (overlap > 0) await addToDay(productId, start, Math.round(overlap / 1000), start);
         }
     } catch (err) {
-        console.error("Uptime could not record a heartbeat:", err);
+        Log.channel("ingest").error("Uptime could not record a heartbeat", { error: err });
     }
 }
 

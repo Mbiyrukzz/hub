@@ -1,3 +1,176 @@
+@import "./tylix-ui.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────
+   Ashmif Hub design system
+   Neutral zinc surfaces, one restrained brand accent (violet) for
+   navigation, links and focus. Flat surfaces: no gradients, no glows.
+   ───────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    @apply font-sans antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    color-scheme: light;
+  }
+  html.dark { color-scheme: dark; }
+  body { @apply bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100; }
+  ::selection { @apply bg-brand-500/20; }
+  code, kbd, pre, samp { @apply font-mono; }
+}
+
+@layer components {
+  /* ── App shell ─────────────────────────────────────────────────── */
+  .app-sidebar {
+    @apply fixed inset-y-0 left-0 z-50 w-64 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900;
+    display: none;
+  }
+  .app-sidebar.is-open { display: flex; @apply shadow-xl; }
+  .app-backdrop { @apply fixed inset-0 z-40 bg-zinc-950/40 lg:hidden; }
+  .app-topbar {
+    @apply sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-zinc-200 bg-white/95 px-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95;
+  }
+
+  .nav-section { @apply px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500; }
+  .nav-item {
+    @apply relative flex h-9 items-center gap-2.5 rounded-md px-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100;
+  }
+  .nav-item svg { @apply h-[18px] w-[18px] shrink-0 text-zinc-400 dark:text-zinc-500; }
+  .nav-item-active { @apply bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white; }
+  .nav-item-active svg { @apply text-brand-600 dark:text-brand-400; }
+  .nav-item-active::before {
+    content: "";
+    @apply absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r bg-brand-600 dark:bg-brand-400;
+  }
+
+  .brand-mark {
+    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-zinc-900 text-[15px] font-bold text-white dark:bg-white dark:text-zinc-900;
+  }
+
+  .avatar {
+    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-400;
+  }
+
+  /* ── Page scaffolding ──────────────────────────────────────────── */
+  .page { @apply mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-10; }
+  .page-narrow { @apply mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-10 lg:py-10; }
+  .page-header {
+    @apply mb-8 flex flex-col gap-4 border-b border-zinc-200 pb-6 sm:flex-row sm:items-end sm:justify-between dark:border-zinc-800;
+  }
+  .page-eyebrow { @apply mb-1 text-[13px] font-medium text-zinc-500 dark:text-zinc-400; }
+  .page-title { @apply text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white; }
+  .page-desc { @apply mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400; }
+  .page-actions { @apply flex flex-wrap items-center gap-2; }
+  .page-loading { @apply px-6 py-24 text-center text-sm text-zinc-500; }
+
+  .section-head { @apply mb-3 flex items-center justify-between gap-3; }
+  .section-title { @apply text-sm font-semibold text-zinc-900 dark:text-zinc-100; }
+
+  /* ── Surfaces ──────────────────────────────────────────────────── */
+  .card {
+    @apply rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900;
+    box-shadow: 0 1px 2px rgb(24 24 27 / 0.04);
+  }
+  .card-dashed { @apply rounded-lg border border-dashed border-zinc-300 bg-transparent dark:border-zinc-700; }
+  .card-header { @apply flex items-center justify-between gap-3 border-b border-zinc-200 px-5 py-3.5 dark:border-zinc-800; }
+  .card-title { @apply text-sm font-semibold text-zinc-900 dark:text-zinc-100; }
+  .card-body { @apply p-5; }
+  .card-footer { @apply flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50/60 px-5 py-3 dark:border-zinc-800 dark:bg-zinc-900/60; }
+
+  .row-divider { @apply border-t border-zinc-100 first:border-t-0 dark:border-zinc-800; }
+  .card-header + .row-divider { border-top-width: 0; }
+  .row-hover { @apply transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40; }
+
+  /* ── Buttons ───────────────────────────────────────────────────── */
+  .btn {
+    @apply inline-flex h-9 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3.5 text-sm font-medium transition-colors;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-950;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn svg { @apply h-4 w-4 shrink-0; }
+  .btn-primary { @apply bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200; }
+  .btn-secondary {
+    @apply border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800;
+    box-shadow: 0 1px 2px rgb(24 24 27 / 0.05);
+  }
+  .btn-ghost { @apply text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100; }
+  .btn-danger { @apply bg-red-600 text-white hover:bg-red-700; }
+  .btn-danger-outline { @apply border border-red-300 bg-white text-red-700 hover:bg-red-50 dark:border-red-900/70 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-500/10; }
+  .btn-danger-ghost { @apply text-zinc-500 hover:bg-red-50 hover:text-red-700 dark:text-zinc-400 dark:hover:bg-red-500/10 dark:hover:text-red-400; }
+  .btn-success-ghost { @apply text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10; }
+  .btn-sm { @apply h-8 px-3 text-[13px]; }
+  .btn-xs { @apply h-7 px-2.5 text-xs; }
+  .btn-lg { @apply h-10 px-4; }
+  .btn-icon { @apply h-9 w-9 px-0; }
+
+  .link { @apply font-medium text-brand-700 hover:text-brand-600 hover:underline underline-offset-4 dark:text-brand-400 dark:hover:text-brand-400; }
+
+  /* ── Forms ─────────────────────────────────────────────────────── */
+  .label { @apply mb-1.5 block text-[13px] font-medium text-zinc-700 dark:text-zinc-300; }
+  .input {
+    @apply block h-9 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none transition;
+    @apply placeholder:text-zinc-400 focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/15;
+    @apply disabled:cursor-not-allowed disabled:bg-zinc-50 disabled:text-zinc-500;
+    @apply dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-600 dark:disabled:bg-zinc-900;
+    box-shadow: 0 1px 2px rgb(24 24 27 / 0.04);
+  }
+  textarea.input { @apply h-auto py-2 leading-relaxed; }
+  .input-lg { @apply h-10; }
+  .hint { @apply mt-1.5 text-xs text-zinc-500 dark:text-zinc-400; }
+  .field-error { @apply mt-1.5 text-xs font-medium text-red-600 dark:text-red-400; }
+  .checkbox { @apply h-4 w-4 shrink-0 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100; }
+
+  /* ── Badges & status ───────────────────────────────────────────── */
+  .badge { @apply inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-4 ring-1 ring-inset; }
+  .badge-gray { @apply bg-zinc-50 text-zinc-600 ring-zinc-500/20 dark:bg-zinc-400/10 dark:text-zinc-400 dark:ring-zinc-400/20; }
+  .badge-green { @apply bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-400/10 dark:text-emerald-400 dark:ring-emerald-400/20; }
+  .badge-amber { @apply bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-400/10 dark:text-amber-400 dark:ring-amber-400/20; }
+  .badge-red { @apply bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-400/10 dark:text-red-400 dark:ring-red-400/20; }
+  .badge-blue { @apply bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-400/10 dark:text-sky-400 dark:ring-sky-400/20; }
+  .badge-violet { @apply bg-brand-50 text-brand-700 ring-brand-600/20 dark:bg-brand-400/10 dark:text-brand-400 dark:ring-brand-400/20; }
+  .badge-teal { @apply bg-teal-50 text-teal-700 ring-teal-600/20 dark:bg-teal-400/10 dark:text-teal-400 dark:ring-teal-400/20; }
+
+  .dot { @apply inline-block h-2 w-2 shrink-0 rounded-full; }
+
+  /* ── Feedback ──────────────────────────────────────────────────── */
+  .alert { @apply rounded-md border px-4 py-3 text-sm; }
+  .alert-title { @apply mb-0.5 font-semibold; }
+  .alert-error { @apply border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300; }
+  .alert-warning { @apply border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300; }
+  .alert-success { @apply border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300; }
+
+  .empty { @apply flex flex-col items-center px-6 py-14 text-center; }
+  .empty-icon { @apply mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400; }
+  .empty-icon svg { @apply h-5 w-5; }
+  .empty-title { @apply text-sm font-semibold text-zinc-900 dark:text-zinc-100; }
+  .empty-text { @apply mt-1 max-w-sm text-sm text-zinc-500 dark:text-zinc-400; }
+
+  /* ── Filters ───────────────────────────────────────────────────── */
+  .chip { @apply inline-flex h-8 items-center rounded-md border px-3 text-[13px] font-medium transition-colors; }
+  .chip-on { @apply border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900; }
+  .chip-off { @apply border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-100; }
+  .filter-label { @apply mr-1 text-xs font-medium text-zinc-500 dark:text-zinc-400; }
+
+  /* ── Data ──────────────────────────────────────────────────────── */
+  .stat-grid { @apply grid grid-cols-2 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-200 gap-px sm:grid-cols-4 dark:border-zinc-800 dark:bg-zinc-800; }
+  .stat { @apply bg-white px-5 py-4 dark:bg-zinc-900; }
+  .stat-label { @apply flex items-center gap-2 text-[13px] font-medium text-zinc-500 dark:text-zinc-400; }
+  .stat-value { @apply mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-zinc-900 dark:text-white; }
+
+  .code-chip { @apply block rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 font-mono text-[11px] text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400; }
+  .kbd { @apply rounded border border-zinc-200 bg-zinc-50 px-1 font-mono text-[11px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300; }
+  .meta { @apply text-xs text-zinc-500 dark:text-zinc-400; }
+  .mono-meta { @apply font-mono text-xs text-zinc-500 dark:text-zinc-400; }
+
+  .modal-backdrop { @apply fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-4; }
+  .modal { @apply max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900; }
+}
+
+/* The content column clears the fixed sidebar when one is on the page. */
+@media (min-width: 1024px) {
+  .app-sidebar { display: flex; box-shadow: none; }
+  body:has(.app-sidebar) .app-main { padding-left: 16rem; }
+}

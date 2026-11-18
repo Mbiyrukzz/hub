@@ -1,9 +1,11 @@
 component SiteLayout
 
 import HubNav from "./components/HubNav"
+import PwaPrompt from "./components/PwaPrompt"
 
 template
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors">
+  <div class="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
     <HubNav />
-    <main data-tylix-slot="true"></main>
+    <main data-tylix-slot="true" class="app-main"></main>
+    <PwaPrompt />
   </div>

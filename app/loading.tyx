@@ -13,7 +13,7 @@ props
   <div
     style="{{
       'position:fixed;top:0;left:0;height:3px;z-index:99999;pointer-events:none;' +
-      'background:#10b981;transition:width 0.2s ease, opacity 0.3s ease;' +
+      'background:#7c3aed;transition:width 0.2s ease, opacity 0.3s ease;' +
       'width:' + loading.progress + '%;' +
       'opacity:' + (loading.visible ? 1 : 0)
     }}"

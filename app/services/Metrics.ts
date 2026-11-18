@@ -11,6 +11,7 @@
 
 import { ProductMetric, type ProductMetricAttributes } from "../models/ProductMetric.js";
 import { ProductTenantMetric, type ProductTenantMetricAttributes } from "../models/ProductTenantMetric.js";
+import { Log } from "@tylix/core";
 
 export interface TenantInput {
     tenants_total: number;
@@ -65,7 +66,7 @@ export async function recordMetrics(productId: number, input: MetricsInput, now:
         if (tenantRow) await ProductTenantMetric.update(tenantRow.id, tenantValues);
         else await ProductTenantMetric.create({ slot, product_id: productId, day, ...tenantValues });
     } catch (err) {
-        console.error("Metrics could not save the tenant numbers:", err);
+        Log.channel("ingest").error("Metrics could not save the tenant numbers", { error: err });
     }
 }
 

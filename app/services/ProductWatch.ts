@@ -2,7 +2,7 @@
  * Service: ProductWatch
  *
  * Once a minute, compares every product's last heartbeat with the online
- * window. When that changes it records an event and emails HUB_ADMINS:
+ * window. When that changes it records an event and emails everyone with alerts.receive:
  *   product.down       no heartbeat inside the window
  *   product.recovered  heartbeats are back
  *
@@ -18,6 +18,7 @@ import { Product, type ProductAttributes } from "../models/Product.js";
 import { ProductApiKey, type ProductApiKeyAttributes } from "../models/ProductApiKey.js";
 import { StatusEvent, type StatusEventAttributes } from "../models/StatusEvent.js";
 import { sendProductAlert } from "../mail/alerts.js";
+import { Log } from "@tylix/core";
 
 // Keep equal to the window in StatusController and PublicController.
 const ONLINE_WINDOW_MS = 3 * 60 * 1000;
@@ -51,7 +52,7 @@ async function record(productId: number, type: string, message: string): Promise
 /** Fire and forget: a mail problem must never stop the watcher. */
 function alert(kind: "down" | "recovered", productName: string, minutes: number): void {
     void sendProductAlert(kind, productName, minutes).catch((err: unknown) => {
-        console.error("ProductWatch alert email failed:", err);
+        Log.channel("alerts").error("ProductWatch alert email failed", { error: err });
     });
 }
 
@@ -95,7 +96,7 @@ async function tick(): Promise<void> {
             }
         }
     } catch (err) {
-        console.error("ProductWatch tick failed:", err);
+        Log.channel("alerts").error("ProductWatch tick failed", { error: err });
     } finally {
         running = false;
     }
@@ -108,7 +109,7 @@ export async function startProductWatch(): Promise<void> {
     try {
         await seed();
     } catch (err) {
-        console.error("ProductWatch could not read past events:", err);
+        Log.channel("alerts").error("ProductWatch could not read past events", { error: err });
     }
 
     timer = setInterval(() => void tick(), TICK_MS);

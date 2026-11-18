@@ -8,6 +8,8 @@ needs
 state
   email: ""
   password: ""
+  code: ""
+  step: "password"
   error: ""
   submitting: false
 
@@ -29,6 +31,10 @@ action
   messageFor(result) {
     switch result.status {
       case 401, 403 {
+        if result.data?.code is "TWO_FACTOR_EXPIRED" {
+          this.step = "password"
+          this.code = ""
+        }
         return result.data?.error ?? "Invalid email or password."
       }
       case 422 {
@@ -64,7 +70,10 @@ action
     try {
       const result = await Auth.login(this.email, this.password)
 
-      if result.ok {
+      if result.ok and result.data?.twoFactorRequired {
+        this.step = "code"
+        this.password = ""
+      } else if result.ok {
         succeeded = true
         window.location.href = "/dashboard"
       } else {
@@ -79,69 +88,134 @@ action
     }
   }
 
+  // Step two: a 6-digit code from the authenticator app, or a recovery code.
+  async submitCode() {
+    if this.submitting {
+      return null
+    }
+    const code = this.code.trim()
+    if code.length < 6 {
+      this.error = "Enter the 6-digit code from your authenticator app, or a recovery code."
+      return null
+    }
+
+    this.error = ""
+    this.submitting = true
+    let succeeded = false
+
+    try {
+      const result = await Auth.verifyTwoFactor(code)
+      if result.ok {
+        succeeded = true
+        const left = result.data.recoveryCodesLeft
+        // Running out of recovery codes: send them where new ones are made.
+        window.location.href = (left is not undefined and left < 3) ? "/account?recovery=low" : (result.data.returnTo ?? "/dashboard")
+      } else {
+        this.error = this.messageFor(result)
+        this.code = ""
+      }
+    } catch (err) {
+      this.error = "Network error. Check your connection and try again."
+    } finally {
+      if not succeeded {
+        this.submitting = false
+      }
+    }
+  }
+
+  startOver() {
+    this.step = "password"
+    this.code = ""
+    this.error = ""
+  }
+
 onMount
   {
     if Auth.user {
       window.location.href = "/dashboard"
     }
+    // Back from Google/GitHub for an account with two-factor on.
+    if new URLSearchParams(window.location.search).get("step") is "two-factor" {
+      this.step = "code"
+    }
   }
 
 template
-  <div class="flex items-center justify-center px-6 py-24">
-    <div class="w-full max-w-sm">
+  <div class="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-16">
+    <div class="w-full max-w-[400px]">
 
-      <div class="flex items-center gap-2.5 mb-8">
-        <span class="w-8 h-8 rounded-md bg-indigo-500 flex items-center justify-center text-white font-bold text-sm">A</span>
-        <span class="font-semibold tracking-tight">Ashmif Hub</span>
-      </div>
-
-      <h1 class="text-2xl font-semibold tracking-tight mb-1">Sign in</h1>
-      <p class="text-sm text-slate-500 mb-8">Internal release and status console.</p>
-
-{{#if error}}
-      <div role="alert" aria-live="polite" class="rounded-md border border-rose-300 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 mb-6">
-        <p class="text-rose-700 dark:text-rose-400 text-sm">{{ error }}</p>
-      </div>
+      <div class="card p-6 sm:p-8">
+{{#if step is "code"}}
+        <h1 class="text-xl font-semibold tracking-tight">Two-factor sign-in</h1>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1.5 mb-6">Open your authenticator app and enter the code it shows for Ashmif Hub.</p>
+{{#else}}
+        <h1 class="text-xl font-semibold tracking-tight">Sign in to Ashmif Hub</h1>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1.5 mb-6">Internal release and status console.</p>
 {{/if}}
 
-      <label for="email" class="block text-slate-500 text-xs font-medium mb-1.5">Email</label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        autocomplete="email"
-        autofocus
-        placeholder="you@ashmif.com"
-        value="{{ email }}"
-        oninput="{{ setField('email', event.target.value) }}"
-        onkeydown="{{ event.key is 'Enter' and submit() }}"
-        class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-md px-3.5 py-2.5 mb-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition"
-      />
+{{#if error}}
+        <div role="alert" aria-live="polite" class="alert alert-error mb-5">{{ error }}</div>
+{{/if}}
 
-      <label for="password" class="block text-slate-500 text-xs font-medium mb-1.5">Password</label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        autocomplete="current-password"
-        placeholder="••••••••"
-        value="{{ password }}"
-        oninput="{{ setField('password', event.target.value) }}"
-        onkeydown="{{ event.key is 'Enter' and submit() }}"
-        class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-md px-3.5 py-2.5 mb-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition"
-      />
+{{#if step is "code"}}
+        <label for="code" class="label">Authentication code</label>
+        <input
+          id="code"
+          name="code"
+          type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          autofocus
+          maxlength="32"
+          placeholder="123 456"
+          value="{{ code }}"
+          oninput="{{ setField('code', event.target.value) }}"
+          onkeydown="{{ event.key is 'Enter' and submitCode() }}"
+          class="input h-11 text-lg tracking-[0.3em] font-mono text-center"
+        />
+        <p class="hint mb-6">Lost your phone? Enter one of your recovery codes (like <span class="kbd">ABCDE-12345</span>) instead.</p>
 
-      <div class="flex justify-end mb-6">
-        <a href="/forgot-password" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Forgot password?</a>
+        <button onclick="{{ submitCode() }}" disabled="{{ submitting }}" class="btn btn-primary btn-lg w-full">
+          {{ submitting ? 'Checking…' : 'Verify and sign in' }}
+        </button>
+        <button onclick="{{ startOver() }}" class="btn btn-ghost w-full mt-2">Use a different account</button>
+{{#else}}
+        <label for="email" class="label">Email</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          autofocus
+          placeholder="you@ashmif.com"
+          value="{{ email }}"
+          oninput="{{ setField('email', event.target.value) }}"
+          onkeydown="{{ event.key is 'Enter' and submit() }}"
+          class="input input-lg mb-4"
+        />
+
+        <div class="flex items-center justify-between mb-1.5">
+          <label for="password" class="label mb-0">Password</label>
+          <a href="/forgot-password" class="text-[13px] link">Forgot password?</a>
+        </div>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          placeholder="••••••••"
+          value="{{ password }}"
+          oninput="{{ setField('password', event.target.value) }}"
+          onkeydown="{{ event.key is 'Enter' and submit() }}"
+          class="input input-lg mb-6"
+        />
+
+        <button onclick="{{ submit() }}" disabled="{{ submitting }}" class="btn btn-primary btn-lg w-full">
+          {{ submitting ? 'Signing in…' : 'Sign in' }}
+        </button>
+{{/if}}
       </div>
 
-      <button
-        onclick="{{ submit() }}"
-        disabled="{{ submitting }}"
-        class="w-full bg-indigo-600 text-white rounded-md py-2.5 text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {{ submitting ? 'Signing in…' : 'Sign in' }}
-      </button>
-
+      <p class="mt-6 text-center text-xs text-zinc-500">Access is by role. Ask a Hub admin to give your verified account one.</p>
     </div>
   </div>

@@ -1,27 +1,29 @@
 component Hero
 
+import { IconArrowRight } from "tylix-icons"
+
 props
   loggedIn: boolean
 
 template
-  <section>
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-12">
-      <p class="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 mb-6">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-        Tylix Hub
+  <section class="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pt-20 pb-16 sm:pt-24 sm:pb-20">
+      <p class="inline-flex items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-6">
+        <span class="dot bg-emerald-500"></span>
+        Internal console for Ashmif products
       </p>
 
-      <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight max-w-2xl">Release notes and uptime for every Tylix product</h1>
-      <p class="text-slate-500 mt-3 max-w-xl leading-relaxed">Write a changelog entry once and publish it to every connected site. Watch each product's heartbeat from one page.</p>
+      <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.1] max-w-3xl text-zinc-900 dark:text-white">Release notes and uptime for every product, in one place.</h1>
+      <p class="text-lg text-zinc-600 dark:text-zinc-400 mt-5 max-w-2xl leading-relaxed">Write a changelog entry once and publish it to every connected site. Watch each product's heartbeat, uptime and incidents from a single console.</p>
 
-      <div class="flex flex-wrap items-center gap-2 mt-8">
+      <div class="flex flex-wrap items-center gap-3 mt-10">
 {{#if loggedIn}}
-        <a href="/changelog?new=1" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">New release</a>
-        <a href="/status" class="text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3.5 py-2 hover:bg-white dark:hover:bg-slate-800 transition-colors">View status</a>
+        <a href="/dashboard" class="btn btn-primary btn-lg">Open the console <IconArrowRight /></a>
+        <a href="/status" class="btn btn-secondary btn-lg">View status</a>
 {{/if}}
 {{#if not loggedIn}}
-        <a href="/login" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">Sign in</a>
-        <a href="#how-it-works" class="text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3.5 py-2 hover:bg-white dark:hover:bg-slate-800 transition-colors">How it works</a>
+        <a href="/login" class="btn btn-primary btn-lg">Sign in <IconArrowRight /></a>
+        <a href="#how-it-works" class="btn btn-secondary btn-lg">How it works</a>
 {{/if}}
       </div>
     </div>

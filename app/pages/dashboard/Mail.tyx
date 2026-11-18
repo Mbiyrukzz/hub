@@ -41,27 +41,31 @@ onMount
 
 template
 {{#if checkedAuth}}
-  <div class="min-h-[calc(100vh-4rem)] bg-slate-200 dark:bg-slate-950 transition-colors px-6 lg:px-10 py-10">
-    <div class="max-w-4xl mx-auto">
-      <a href="/dashboard" class="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-500 text-sm hover:underline mb-6">
-        <IconArrowLeft class="w-4 h-4" /> Back to dashboard
+  <div class="page-narrow">
+    <div>
+      <a href="/dashboard" class="btn btn-ghost btn-sm -ml-3 mb-4">
+        <IconArrowLeft class="w-4 h-4" /> Back to overview
       </a>
 
-      <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-200 mb-1">Mail</h1>
-      <p class="text-slate-500 text-sm mb-8">Emails sent or captured by your app.</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Mail</h1>
+          <p class="page-desc">Emails sent or captured by your app.</p>
+        </div>
+      </div>
 
 {{#if logsLoading}}
-      <p class="text-slate-500 text-sm">Loading…</p>
+      <p class="page-loading">Loading…</p>
 {{/if}}
 
 {{#if not logsLoading}}
 {{#if not logsAvailable}}
-      <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-200 dark:bg-slate-900 p-8 text-center">
-        <div class="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-          <IconMail class="w-5 h-5 text-emerald-600 dark:text-emerald-500" />
+      <div class="card-dashed empty">
+        <div class="empty-icon">
+          <IconMail />
         </div>
-        <h3 class="text-slate-900 dark:text-slate-200 font-medium mb-1.5">Mail logs are only available while developing</h3>
-        <p class="text-slate-500 text-sm max-w-sm mx-auto">
+        <h3 class="empty-title">Mail logs are only available while developing</h3>
+        <p class="empty-text">
           Logged emails can contain password-reset links, so the production server does not expose them.
         </p>
       </div>
@@ -69,34 +73,34 @@ template
 
 {{#if logsAvailable}}
 {{#if logs.length is 0}}
-      <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-200 dark:bg-slate-900 p-8 text-center">
-        <div class="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-          <IconMail class="w-5 h-5 text-emerald-600 dark:text-emerald-500" />
+      <div class="card-dashed empty">
+        <div class="empty-icon">
+          <IconMail />
         </div>
-        <h3 class="text-slate-900 dark:text-slate-200 font-medium mb-1.5">No mail yet</h3>
-        <p class="text-slate-500 text-sm max-w-sm mx-auto">
+        <h3 class="empty-title">No mail yet</h3>
+        <p class="empty-text">
           Emails sent through Mail.send() will show up here.
         </p>
       </div>
 {{/if}}
 
 {{#if logs.length is not 0}}
-      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-200 dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-800 overflow-hidden shadow-sm dark:shadow-none">
+      <div class="card overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800">
 {{#each log in logs}}
-        <button onclick="{{ selectLog(log) }}" class="w-full text-left p-4 hover:bg-slate-200 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-between gap-4">
+        <button onclick="{{ selectLog(log) }}" class="w-full text-left px-5 py-3.5 row-hover flex items-center justify-between gap-4">
           <div class="min-w-0">
-            <p class="text-slate-900 dark:text-slate-200 text-sm font-medium truncate">{{ log.subject }}</p>
-            <p class="text-slate-500 text-xs truncate">To: {{ log.recipient }}</p>
+            <p class="text-sm font-medium truncate">{{ log.subject }}</p>
+            <p class="meta truncate mt-0.5">To: {{ log.recipient }}</p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
 {{#if log.status is "sent"}}
-            <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-500">sent</span>
+            <span class="badge badge-green">sent</span>
 {{/if}}
 {{#if log.status is "captured"}}
-            <span class="text-xs px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-500">captured</span>
+            <span class="badge badge-gray">captured</span>
 {{/if}}
 {{#if log.status is "failed"}}
-            <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-500">failed</span>
+            <span class="badge badge-red">failed</span>
 {{/if}}
           </div>
         </button>
@@ -107,15 +111,15 @@ template
 {{/if}}
 
 {{#if selectedLog}}
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-6 z-50" onclick="{{ closeDetail() }}">
-        <div class="bg-slate-200 dark:bg-slate-900 rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6 shadow-xl">
-          <h3 class="text-slate-900 dark:text-slate-200 font-medium mb-1">{{ selectedLog.subject }}</h3>
-          <p class="text-slate-500 text-xs mb-4">To: {{ selectedLog.recipient }} · {{ selectedLog.driver }} · {{ selectedLog.status }}</p>
+      <div class="modal-backdrop" onclick="{{ closeDetail() }}">
+        <div class="modal p-6">
+          <h3 class="font-semibold mb-1">{{ selectedLog.subject }}</h3>
+          <p class="meta mb-4">To: {{ selectedLog.recipient }} · {{ selectedLog.driver }} · {{ selectedLog.status }}</p>
 {{#if selectedLog.error}}
-          <p class="text-red-500 text-sm mb-4">{{ selectedLog.error }}</p>
+          <p class="alert alert-error mb-4">{{ selectedLog.error }}</p>
 {{/if}}
-          <div class="text-slate-600 dark:text-slate-400 text-xs whitespace-pre-wrap bg-slate-50 dark:bg-slate-950 rounded-lg p-4">{{ selectedLog.body }}</div>
-          <button onclick="{{ closeDetail() }}" class="mt-4 text-sm text-emerald-600 dark:text-emerald-500 hover:underline">Close</button>
+          <div class="text-zinc-600 dark:text-zinc-400 text-xs whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-4 font-mono">{{ selectedLog.body }}</div>
+          <button onclick="{{ closeDetail() }}" class="btn btn-secondary mt-4">Close</button>
         </div>
       </div>
 {{/if}}

@@ -1,0 +1,199 @@
+page AuditLog
+
+import { IconDownload } from "tylix-icons"
+
+title "Audit log"
+
+needs
+  Auth
+
+permissions
+  audit.view
+
+state
+  entries: []
+  categories: []
+  category: ""
+  actor: ""
+  next: null
+  loading: true
+  loadingMore: false
+  loadError: ""
+  expanded: 0
+  chipOn: "chip chip-on"
+  chipOff: "chip chip-off"
+
+action
+  url(before) {
+    const params = new URLSearchParams()
+    if this.category {
+      params.set("category", this.category)
+    }
+    if this.actor.trim() {
+      params.set("actor", this.actor.trim())
+    }
+    if before {
+      params.set("before", String(before))
+    }
+    const qs = params.toString()
+    return "/api/admin/audit" + (qs ? "?" + qs : "")
+  }
+
+  async load() {
+    this.loading = true
+    const result = await useApi(this.url(null))
+    if result.ok {
+      this.entries = result.data.entries
+      this.categories = result.data.categories
+      this.next = result.data.next
+      this.loadError = ""
+    } else {
+      this.loadError = result.data?.error ?? result.error ?? "Couldn't load the audit log."
+    }
+    this.loading = false
+  }
+
+  async more() {
+    if this.loadingMore or not this.next {
+      return null
+    }
+    this.loadingMore = true
+    const result = await useApi(this.url(this.next))
+    if result.ok {
+      this.entries = [...this.entries, ...result.data.entries]
+      this.next = result.data.next
+    }
+    this.loadingMore = false
+  }
+
+  async pick(category) {
+    this.category = category
+    await this.load()
+  }
+
+  setActor(value) {
+    this.actor = value
+  }
+
+  toggle(id) {
+    this.expanded = this.expanded is id ? 0 : id
+  }
+
+  exportUrl() {
+    return "/api/admin/audit/export?format=xlsx" + (this.category ? "&category=" + encodeURIComponent(this.category) : "")
+  }
+
+  label(category) {
+    const names: Record<string, string> = { auth: "Sign-ins", account: "Account", product: "Products", changelog: "Changelog", announcement: "Announcements", access: "Access", report: "Downloads" }
+    return names[category] ?? category
+  }
+
+  badge(action) {
+    if action.endsWith("_failed") or action is "auth.token_reuse" {
+      return "badge-red"
+    }
+    if action.endsWith(".deleted") or action.endsWith("_disabled") or action.endsWith("role_deleted") {
+      return "badge-amber"
+    }
+    if action.startsWith("auth.") {
+      return "badge-blue"
+    }
+    return "badge-violet"
+  }
+
+  whenText(iso) {
+    const d = new Date(iso)
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + ", " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  }
+
+  device(ua) {
+    if not ua {
+      return ""
+    }
+    const browser = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : (/curl|node|undici/i.test(ua) ? "Script" : "Browser")
+    const os = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Mac OS/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : ""
+    return os ? browser + " on " + os : browser
+  }
+
+  details(meta) {
+    return meta ? JSON.stringify(meta, null, 2) : ""
+  }
+
+onMount
+  async {
+    await this.load()
+  }
+
+template
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Audit log</h1>
+        <p class="page-desc">Sign-ins, two-factor changes, downloads and every change made in the console.</p>
+      </div>
+      <a href="{{ exportUrl() }}" class="btn btn-secondary">
+        <IconDownload class="w-4 h-4" /> Download Excel
+      </a>
+    </div>
+
+    <div class="card flex flex-wrap items-center gap-2 px-4 py-3 mb-4">
+      <button onclick="{{ pick('') }}" class="{{ category is '' ? chipOn : chipOff }}">Everything</button>
+{{#each c in categories}}
+      <button onclick="{{ pick(c) }}" class="{{ category is c ? chipOn : chipOff }}">{{ label(c) }}</button>
+{{/each}}
+      <input
+        type="search"
+        aria-label="Filter by email"
+        placeholder="Filter by email…"
+        value="{{ actor }}"
+        oninput="{{ setActor(event.target.value) }}"
+        onkeydown="{{ event.key is 'Enter' and load() }}"
+        class="input ml-auto sm:w-56"
+      />
+    </div>
+
+{{#if loadError}}
+    <p role="alert" class="alert alert-error">{{ loadError }}</p>
+{{/if}}
+
+{{#if loading}}
+    <p class="page-loading">Loading…</p>
+{{/if}}
+
+{{#if not loading and not loadError and entries.length is 0}}
+    <div class="card-dashed empty text-sm text-zinc-500">Nothing recorded here yet.</div>
+{{/if}}
+
+{{#if not loading and entries.length > 0}}
+    <div class="card overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800">
+{{#each e in entries}}
+      <div>
+        <button onclick="{{ toggle(e.id) }}" aria-expanded="{{ expanded is e.id }}" class="w-full text-left px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
+          <span class="text-xs text-zinc-500 sm:w-36 shrink-0 tabular-nums">{{ whenText(e.created_at) }}</span>
+          <span class="badge font-mono w-fit shrink-0 {{ badge(e.action) }}">{{ e.action }}</span>
+          <span class="text-sm flex-1 min-w-0 truncate">{{ e.summary }}</span>
+          <span class="text-xs text-zinc-500 truncate sm:max-w-[14rem]">{{ e.actor_email ?? "system" }}</span>
+        </button>
+{{#if expanded is e.id}}
+        <dl class="px-4 py-4 bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-100 dark:border-zinc-800 grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+          <dt class="text-zinc-500">When</dt><dd>{{ new Date(e.created_at).toLocaleString() }}</dd>
+          <dt class="text-zinc-500">Who</dt><dd>{{ e.actor_email ?? "nobody (system)" }}{{ e.actor_id ? " · user " + e.actor_id : "" }}</dd>
+{{#if e.target_type}}
+          <dt class="text-zinc-500">Target</dt><dd>{{ e.target_type }} {{ e.target_id }}</dd>
+{{/if}}
+          <dt class="text-zinc-500">From</dt><dd>{{ e.ip ?? "unknown address" }}{{ e.user_agent ? " · " + device(e.user_agent) : "" }}</dd>
+{{#if e.meta}}
+          <dt class="text-zinc-500">Details</dt><dd><pre class="font-mono whitespace-pre-wrap break-all">{{ details(e.meta) }}</pre></dd>
+{{/if}}
+        </dl>
+{{/if}}
+      </div>
+{{/each}}
+    </div>
+{{#if next}}
+    <div class="mt-4 text-center">
+      <button onclick="{{ more() }}" disabled="{{ loadingMore }}" class="btn btn-secondary">{{ loadingMore ? "Loading…" : "Older entries" }}</button>
+    </div>
+{{/if}}
+{{/if}}
+  </div>

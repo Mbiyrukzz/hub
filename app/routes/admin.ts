@@ -1,5 +1,5 @@
 /**
- * Admin routes (signed in AND listed in HUB_ADMINS).
+ * Admin routes (signed in AND holding the permission each action needs).
  *
  * GET/POST          /api/admin/products
  * GET/PUT/DELETE    /api/admin/products/:id
@@ -10,9 +10,13 @@
  * GET/PUT/DELETE    /api/admin/announcements/:id
  * POST              /api/admin/announcements/:id/resolve
  * GET               /api/admin/status
+ * GET               /api/admin/changelog/export   (?format=pdf|xlsx&product_id=)
+ * GET               /api/admin/status/export      (?format=pdf|xlsx&days=30)
+ * GET               /api/admin/audit              (?category=&actor=&before=)
+ * GET               /api/admin/audit/export       (?format=xlsx)
  *
  * "auth" only proves who the caller is. Each controller method then calls
- * requireHubAdmin, which decides whether that person may manage the Hub.
+ * requireHub(req, res, "<permission>"): see app/permissions for the roles.
  */
 
 import type { Router } from "@tylix/core";
@@ -20,6 +24,8 @@ import { ProductController } from "../controllers/ProductController.js";
 import { ChangelogController } from "../controllers/ChangelogController.js";
 import { StatusController } from "../controllers/StatusController.js";
 import { AnnouncementController } from "../controllers/AnnouncementController.js";
+import { ReportController } from "../controllers/ReportController.js";
+import { AuditController } from "../controllers/AuditController.js";
 
 type Handler = Parameters<Router["get"]>[1];
 
@@ -28,6 +34,14 @@ export async function routes(router: Router, { auth }: { auth: (handler: Handler
     const changelog = new ChangelogController();
     const status = new StatusController();
     const announcements = new AnnouncementController();
+    const reports = new ReportController();
+    const auditLog = new AuditController();
+
+    // Before the /:id routes, so "export" isn't taken for an id.
+    router.get("/api/admin/changelog/export", auth((req, res) => reports.changelog(req, res)));
+    router.get("/api/admin/status/export", auth((req, res) => reports.status(req, res)));
+    router.get("/api/admin/audit/export", auth((req, res) => reports.audit(req, res)));
+    router.get("/api/admin/audit", auth((req, res) => auditLog.index(req, res)));
 
     router.get("/api/admin/products", auth((req, res) => products.index(req, res)));
     router.post("/api/admin/products", auth((req, res) => products.store(req, res)));

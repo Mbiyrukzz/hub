@@ -209,69 +209,73 @@ onMount
     this.loading = false
     this.checkedAuth = true
 
-    if window.location.search.includes("new=1") {
+    if window.location.search.includes("new=1") and this.can("products.manage") {
       this.openNew()
     }
   }
 
 template
 {{#if checkedAuth}}
-  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+  <div class="page">
 
 {{#if forbidden}}
-    <div class="rounded-xl border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-6">
-      <h1 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">You don't have access to the Hub</h1>
-      <p class="text-sm text-amber-700 dark:text-amber-400">Your account isn't listed in HUB_ADMINS, or its email isn't verified yet.</p>
+    <div class="alert alert-warning max-w-2xl">
+      <h1 class="alert-title">You don't have access to the Hub</h1>
+      <p>Your account doesn't have a role that opens this page, or its email isn't verified yet. Ask a Hub admin for access.</p>
     </div>
 {{/if}}
 
 {{#if not forbidden}}
-    <div class="flex items-end justify-between gap-4 mb-6">
+    <div class="page-header">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Products</h1>
-        <p class="text-sm text-slate-500 mt-1">Every site that reads from the Hub is a product here.</p>
+        <h1 class="page-title">Products</h1>
+        <p class="page-desc">Every site that reads from the Hub is a product here.</p>
       </div>
-      <button onclick="{{ openNew() }}" class="text-sm font-medium bg-indigo-600 text-white rounded-md px-3.5 py-2 hover:bg-indigo-500 transition-colors">Add product</button>
+{{#if can("products.manage")}}
+      <button onclick="{{ openNew() }}" class="btn btn-primary">Add product</button>
+{{/if}}
     </div>
 
 {{#if listError}}
-    <p role="alert" class="text-sm text-rose-600 dark:text-rose-400 mb-4">{{ listError }}</p>
+    <p role="alert" class="alert alert-error mb-6">{{ listError }}</p>
 {{/if}}
 
     <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
 
-      <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
+      <section class="card overflow-hidden">
 {{#if loading}}
-        <p class="p-6 text-sm text-slate-500">Loading…</p>
+        <p class="px-5 py-10 text-center text-sm text-zinc-500">Loading…</p>
 {{/if}}
 
 {{#if not loading}}
 {{#if products.length is 0}}
-        <div class="p-10 text-center">
-          <h3 class="font-medium mb-1.5">No products yet</h3>
-          <p class="text-sm text-slate-500">Add Tylix Deploy first, then the Tylix framework.</p>
+        <div class="empty">
+          <h3 class="empty-title">No products yet</h3>
+          <p class="empty-text">Add Tylix Deploy first, then the Tylix framework.</p>
         </div>
 {{/if}}
 {{/if}}
 
 {{#each p in products}}
-        <div class="flex items-center gap-4 px-5 py-4 border-t first:border-t-0 border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-4 px-5 py-4 row-divider">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <p class="font-medium truncate">{{ p.name }}</p>
 {{#if p.is_active}}
-              <span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">Active</span>
+              <span class="badge badge-green">Active</span>
 {{/if}}
 {{#if not p.is_active}}
-              <span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-slate-500/10 text-slate-600 dark:text-slate-400">Hidden</span>
+              <span class="badge badge-gray">Hidden</span>
 {{/if}}
             </div>
-            <p class="font-mono text-xs text-slate-500 truncate mt-0.5">{{ p.slug }}{{ p.website_url ? ' · ' + p.website_url : '' }}</p>
+            <p class="font-mono text-xs text-zinc-500 truncate mt-0.5">{{ p.slug }}{{ p.website_url ? ' · ' + p.website_url : '' }}</p>
           </div>
-          <span class="hidden sm:inline text-xs text-slate-500 shrink-0">{{ p.entryCount is 1 ? '1 entry' : p.entryCount + ' entries' }}</span>
+          <span class="hidden sm:inline text-xs text-zinc-500 shrink-0">{{ p.entryCount is 1 ? '1 entry' : p.entryCount + ' entries' }}</span>
           <div class="flex items-center gap-1 shrink-0">
-            <button onclick="{{ openEdit(p) }}" class="text-sm text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Edit</button>
-            <button onclick="{{ remove(p) }}" class="text-sm text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 px-2.5 py-1 rounded-md transition-colors">Delete</button>
+{{#if can("products.manage")}}
+            <button onclick="{{ openEdit(p) }}" class="btn btn-ghost btn-sm">Edit</button>
+            <button onclick="{{ remove(p) }}" class="btn btn-danger-ghost btn-sm">Delete</button>
+{{/if}}
           </div>
         </div>
 {{/each}}
@@ -279,68 +283,77 @@ template
 
       <aside class="lg:sticky lg:top-6">
 {{#if not editorOpen}}
-        <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-6">
+        <div class="card-dashed p-6">
+{{#if can("products.manage")}}
           <h2 class="text-sm font-semibold mb-1">Product editor</h2>
-          <p class="text-sm text-slate-500">Pick a product to edit, or add a new one.</p>
+          <p class="text-sm text-zinc-500">Pick a product to edit, or add a new one.</p>
+{{#else}}
+          <h2 class="text-sm font-semibold mb-1">Read-only</h2>
+          <p class="text-sm text-zinc-500">Your role can see products but not change them. Ask a Hub admin if you need to.</p>
+{{/if}}
         </div>
 {{/if}}
 
 {{#if editorOpen}}
-        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5">
+        <div class="card p-5">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-semibold">{{ editingId is 0 ? 'New product' : 'Edit product' }}</h2>
-            <button onclick="{{ closeEditor() }}" class="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Close</button>
+            <button onclick="{{ closeEditor() }}" class="text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors">Close</button>
           </div>
 
 {{#if formError}}
-          <p role="alert" class="rounded-md border border-rose-300 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-sm text-rose-700 dark:text-rose-400 mb-4">{{ formError }}</p>
+          <p role="alert" class="alert alert-error mb-4">{{ formError }}</p>
 {{/if}}
 
-          <label for="p-name" class="block text-xs font-medium text-slate-500 mb-1.5">Name</label>
-          <input id="p-name" type="text" placeholder="Tylix Deploy" value="{{ fName }}" oninput="{{ setField('fName', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+          <label for="p-name" class="label">Name</label>
+          <input id="p-name" type="text" placeholder="Tylix Deploy" value="{{ fName }}" oninput="{{ setField('fName', event.target.value) }}" class="input" />
 {{#if errors.name}}
-          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.name }}</p>
+          <p class="field-error">{{ errors.name }}</p>
 {{/if}}
 
-          <label for="p-slug" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">Slug</label>
-          <input id="p-slug" type="text" placeholder="tylix-deploy" disabled="{{ editingId is not 0 }}" value="{{ fSlug }}" oninput="{{ setField('fSlug', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 disabled:opacity-60" />
-          <p class="text-xs text-slate-500 mt-1">Part of the public API address. It can't be changed later.</p>
+          <label for="p-slug" class="label mt-4">Slug</label>
+          <input id="p-slug" type="text" placeholder="tylix-deploy" disabled="{{ editingId is not 0 }}" value="{{ fSlug }}" oninput="{{ setField('fSlug', event.target.value) }}" class="input font-mono" />
+          <p class="hint">Part of the public API address. It can't be changed later.</p>
 {{#if errors.slug}}
-          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.slug }}</p>
+          <p class="field-error">{{ errors.slug }}</p>
 {{/if}}
 
-          <label for="p-url" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">Website</label>
-          <input id="p-url" type="text" placeholder="https://deploy.ashmif.com" value="{{ fUrl }}" oninput="{{ setField('fUrl', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500" />
+          <label for="p-url" class="label mt-4">Website</label>
+          <input id="p-url" type="text" placeholder="https://deploy.ashmif.com" value="{{ fUrl }}" oninput="{{ setField('fUrl', event.target.value) }}" class="input" />
 {{#if errors.website_url}}
-          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.website_url }}</p>
+          <p class="field-error">{{ errors.website_url }}</p>
 {{/if}}
 
-          <label for="p-desc" class="block text-xs font-medium text-slate-500 mt-4 mb-1.5">Description</label>
-          <textarea id="p-desc" rows="3" value="{{ fDesc }}" oninput="{{ setField('fDesc', event.target.value) }}" class="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"></textarea>
+          <label for="p-desc" class="label mt-4">Description</label>
+          <textarea id="p-desc" rows="3" value="{{ fDesc }}" oninput="{{ setField('fDesc', event.target.value) }}" class="input"></textarea>
 {{#if errors.description}}
-          <p class="text-xs text-rose-600 dark:text-rose-400 mt-1">{{ errors.description }}</p>
+          <p class="field-error">{{ errors.description }}</p>
 {{/if}}
 
-          <label class="flex items-center gap-2 mt-4 text-sm text-slate-600 dark:text-slate-300">
-            <input type="checkbox" checked="{{ fActive }}" onclick="{{ toggleActive() }}" class="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500" />
+          <label class="flex items-center gap-2 mt-4 text-sm text-zinc-600 dark:text-zinc-300">
+            <input type="checkbox" checked="{{ fActive }}" onclick="{{ toggleActive() }}" class="rounded border-zinc-300 dark:border-zinc-700 text-brand-600 focus:ring-brand-500" />
             Visible in the public API
           </label>
 
 {{#if editingId is not 0}}
-          <div class="mt-5 rounded-md border border-slate-200 dark:border-slate-800 p-3">
-            <p class="text-xs font-medium text-slate-500 mb-2">API key for reporting status</p>
+          <div class="mt-5 rounded-md border border-zinc-200 dark:border-zinc-800 p-3">
+            <p class="text-xs font-medium text-zinc-500 mb-2">API key for reporting status</p>
 {{#if keyError}}
-            <p role="alert" class="text-xs text-rose-600 dark:text-rose-400 mb-2">{{ keyError }}</p>
+            <p role="alert" class="text-xs text-red-600 dark:text-red-400 mb-2">{{ keyError }}</p>
 {{/if}}
 {{#if newKey}}
-            <button onclick="{{ copyKey() }}" title="Copy the key" class="w-full text-left rounded-md bg-slate-100 dark:bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">{{ keyCopied ? 'Copied to clipboard' : newKey }}</button>
+            <button onclick="{{ copyKey() }}" title="Copy the key" class="w-full text-left code-chip text-zinc-700 dark:text-zinc-300 break-all hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">{{ keyCopied ? 'Copied to clipboard' : newKey }}</button>
             <p class="text-xs text-amber-600 dark:text-amber-400 mt-2">Copy it now. It is shown once and can't be retrieved later.</p>
 {{/if}}
-            <button onclick="{{ generateKey() }}" disabled="{{ keyBusy }}" class="mt-2 text-sm border border-slate-300 dark:border-slate-700 rounded-md px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50">{{ keyBusy ? 'Generating…' : 'Generate new key' }}</button>
+{{#if can("products.keys")}}
+            <button onclick="{{ generateKey() }}" disabled="{{ keyBusy }}" class="btn btn-secondary btn-sm mt-2">{{ keyBusy ? 'Generating…' : 'Generate new key' }}</button>
+{{#else}}
+            <p class="mt-2 text-xs text-zinc-500">Only admins can issue reporting keys.</p>
+{{/if}}
           </div>
 {{/if}}
 
-          <button onclick="{{ save() }}" disabled="{{ saving }}" class="mt-5 w-full bg-indigo-600 text-white rounded-md py-2 text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          <button onclick="{{ save() }}" disabled="{{ saving }}" class="btn btn-primary mt-5 w-full">
             {{ saving ? 'Saving…' : 'Save product' }}
           </button>
         </div>
@@ -349,9 +362,9 @@ template
     </div>
 {{/if}}
 
-  </main>
+  </div>
 {{/if}}
 
 {{#if not checkedAuth}}
-  <p class="px-6 py-16 text-center text-sm text-slate-500">Loading…</p>
+  <p class="page-loading">Loading…</p>
 {{/if}}

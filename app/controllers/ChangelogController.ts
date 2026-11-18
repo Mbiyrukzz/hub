@@ -9,7 +9,8 @@ import type { TylixRequest, TylixResponse } from "@tylix/core";
 import { ChangelogEntry, type ChangelogEntryAttributes } from "../models/ChangelogEntry.js";
 import { Product } from "../models/Product.js";
 import { validateEntry, normalizeEntry } from "../validators/ChangelogValidator.js";
-import { requireHubAdmin } from "../services/AdminGate.js";
+import { requireHub } from "../services/AdminGate.js";
+import { audit, changedFields } from "../services/Audit.js";
 import { isoOf, storeInstant, toAdminEntry } from "../services/ChangelogService.js";
 
 async function findEntry(req: TylixRequest, res: TylixResponse): Promise<ChangelogEntryAttributes | null> {
@@ -30,7 +31,7 @@ async function versionTaken(productId: number, version: string, exceptId?: numbe
 export class ChangelogController {
     /** Optional ?product_id= filter. Newest first, drafts included. */
     async index(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "changelog.view"))) return;
 
         const productId = Number(req.query?.product_id);
         const query = ChangelogEntry.query();
@@ -44,7 +45,7 @@ export class ChangelogController {
     }
 
     async show(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "changelog.view"))) return;
 
         const entry = await findEntry(req, res);
         if (!entry) return;
@@ -53,7 +54,7 @@ export class ChangelogController {
     }
 
     async store(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "changelog.manage"))) return;
 
         const result = validateEntry(req.body);
         if (!result.valid) {
@@ -88,12 +89,17 @@ export class ChangelogController {
             return res.json({ error: "Could not save the entry." });
         }
 
+        await audit(req, "changelog.created", {
+            target: ["changelog", entry.id],
+            summary: `Wrote ${entry.version} (${entry.status}): ${entry.title}`,
+            meta: { product_id: entry.product_id },
+        });
         res.status(201);
         return res.json(toAdminEntry(entry));
     }
 
     async update(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "changelog.manage"))) return;
 
         const entry = await findEntry(req, res);
         if (!entry) return;
@@ -133,17 +139,31 @@ export class ChangelogController {
             res.status(500);
             return res.json({ error: "Could not reload the entry after saving." });
         }
+        const changed = changedFields(entry, fresh, ["version", "title", "body", "category", "status", "published_at"]);
+        if (changed.length > 0) {
+            const published = entry.status !== fresh.status && fresh.status !== "draft";
+            await audit(req, published ? "changelog.published" : "changelog.updated", {
+                target: ["changelog", entry.id],
+                summary: `${published ? "Published" : "Edited"} ${fresh.version}: ${fresh.title}`,
+                meta: { product_id: entry.product_id, changed },
+            });
+        }
 
         return res.json(toAdminEntry(fresh));
     }
 
     async destroy(req: TylixRequest, res: TylixResponse) {
-        if (!(await requireHubAdmin(req, res))) return;
+        if (!(await requireHub(req, res, "changelog.manage"))) return;
 
         const entry = await findEntry(req, res);
         if (!entry) return;
 
         await ChangelogEntry.delete(entry.id);
+        await audit(req, "changelog.deleted", {
+            target: ["changelog", entry.id],
+            summary: `Deleted ${entry.version}: ${entry.title}`,
+            meta: { product_id: entry.product_id },
+        });
 
         res.status(204);
         return res.end();

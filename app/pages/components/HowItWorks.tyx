@@ -2,26 +2,28 @@ component HowItWorks
 
 state
   steps: [
-    { number: "1", name: "Add a product", body: "Every site that reads from the Hub is a product. Give it a name and a slug, then generate its API key.", snippet: "slug: tylix-deploy" },
-    { number: "2", name: "Write a release", body: "Pick a version and category, choose draft, scheduled or published, and describe what changed in Markdown.", snippet: "0.2.0 · added · Docker sites, one-click deploys" },
-    { number: "3", name: "Report status", body: "The product sends a heartbeat every minute. No heartbeat for 3 minutes counts as down.", snippet: "heartbeat every 1 min" }
+    { number: "01", name: "Add a product", body: "Every site that reads from the Hub is a product. Give it a name and a slug, then generate its API key.", snippet: "slug: tylix-deploy" },
+    { number: "02", name: "Write a release", body: "Pick a version and category, choose draft, scheduled or published, and describe what changed in Markdown.", snippet: "0.2.0 · added · Docker sites, one-click deploys" },
+    { number: "03", name: "Report status", body: "The product sends a heartbeat every minute. No heartbeat for 3 minutes counts as down.", snippet: "heartbeat every 1 min" }
   ]
 
 template
-  <section id="how-it-works" class="border-t border-slate-200 dark:border-slate-800">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-      <h2 class="text-2xl font-semibold tracking-tight">From new product to live status in three steps</h2>
-      <p class="text-sm text-slate-500 mt-1">No extra tooling. Everything is done from the Hub.</p>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-{{#each s in steps}}
-        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5">
-          <div class="w-7 h-7 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-xs font-semibold mb-3">{{ s.number }}</div>
-          <h3 class="text-sm font-semibold mb-1">{{ s.name }}</h3>
-          <p class="text-sm text-slate-500 leading-relaxed mb-4">{{ s.body }}</p>
-          <code class="block rounded-md bg-slate-100 dark:bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] text-slate-700 dark:text-slate-300 overflow-x-auto whitespace-nowrap">{{ s.snippet }}</code>
-        </div>
-{{/each}}
+  <section id="how-it-works" class="border-t border-zinc-200 dark:border-zinc-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-16">
+      <div class="max-w-2xl">
+        <h2 class="text-2xl font-semibold tracking-tight">From new product to live status in three steps</h2>
+        <p class="text-zinc-600 dark:text-zinc-400 mt-2">No extra tooling. Everything is done from the Hub.</p>
       </div>
+
+      <ol class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+{{#each s in steps}}
+        <li class="border-t-2 border-zinc-900 dark:border-zinc-100 pt-5">
+          <p class="font-mono text-xs font-medium text-zinc-500 mb-3">{{ s.number }}</p>
+          <h3 class="text-base font-semibold mb-1.5">{{ s.name }}</h3>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4">{{ s.body }}</p>
+          <code class="code-chip overflow-x-auto whitespace-nowrap">{{ s.snippet }}</code>
+        </li>
+{{/each}}
+      </ol>
     </div>
   </section>

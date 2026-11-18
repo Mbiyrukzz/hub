@@ -1,20 +1,25 @@
 component HubNav
 
-import { IconBolt, IconSun, IconMoon } from "tylix-icons"
+import { IconLayoutDashboard, IconPackage, IconClipboardList, IconMegaphone, IconActivity, IconKey, IconHistory, IconSun, IconMoon, IconLogout, IconMenu, IconX } from "tylix-icons"
 
 uses
   Auth
   Theme
 
+state
+  menuOpen: false
+
 computed
-  tabs() {
-    return [
-      { label: "Overview", href: "/dashboard" },
-      { label: "Products", href: "/products" },
-      { label: "Changelog", href: "/changelog" },
-      { label: "Announcements", href: "/announcements" },
-      { label: "Status", href: "/status" }
-    ]
+  initials() {
+    const name = Auth.user ? (Auth.user.name ?? "") : ""
+    const parts = name.trim().split(/\s+/).filter((p) => p.length > 0)
+    if parts.length is 0 {
+      return "?"
+    }
+    if parts.length is 1 {
+      return parts[0].slice(0, 2).toUpperCase()
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   }
 
 action
@@ -23,72 +28,118 @@ action
     return path is href or path.startsWith(href + "/")
   }
 
-  tabClass(href) {
-    const base = "px-3 py-1.5 rounded-md text-sm transition-colors "
+  navClass(href) {
     if this.isActive(href) {
-      return base + "font-medium bg-white/10 text-white"
+      return "nav-item nav-item-active"
     }
-    return base + "text-slate-400 hover:text-white hover:bg-white/5"
+    return "nav-item"
+  }
+
+  openMenu() {
+    this.menuOpen = true
+  }
+
+  closeMenu() {
+    this.menuOpen = false
   }
 
 template
 {{#if Auth.user}}
-<header class="bg-slate-950 text-slate-100 border-b border-white/10">
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-6">
+<header class="app-topbar lg:hidden">
+  <button onclick="{{ openMenu() }}" aria-label="Open navigation" class="btn btn-ghost btn-icon -ml-2">
+    <IconMenu class="w-5 h-5" />
+  </button>
+  <a href="/dashboard" class="flex items-center gap-2.5">
+    <span class="brand-mark">A</span>
+    <span class="text-[15px] font-semibold tracking-tight">Ashmif Hub</span>
+  </a>
+  <a href="/account" title="Your account" class="avatar ml-auto">{{ initials }}</a>
+</header>
 
-    <a href="/dashboard" class="flex items-center gap-2.5 shrink-0">
-      <span class="w-7 h-7 rounded-md bg-indigo-500 flex items-center justify-center">
-        <IconBolt class="w-4 h-4 text-white" />
+{{#if menuOpen}}
+<div class="app-backdrop" onclick="{{ closeMenu() }}"></div>
+{{/if}}
+
+<aside class="{{ menuOpen ? 'app-sidebar is-open' : 'app-sidebar' }}" aria-label="Main navigation">
+  <div class="flex h-16 items-center gap-2.5 px-5 border-b border-zinc-200 dark:border-zinc-800">
+    <a href="/dashboard" class="flex items-center gap-2.5 min-w-0">
+      <span class="brand-mark">A</span>
+      <span class="min-w-0">
+        <span class="block text-[15px] font-semibold leading-tight tracking-tight">Ashmif Hub</span>
+        <span class="block text-xs text-zinc-500 leading-tight">Release console</span>
       </span>
-      <span class="font-semibold tracking-tight">Ashmif Hub</span>
     </a>
+    <button onclick="{{ closeMenu() }}" aria-label="Close navigation" class="btn btn-ghost btn-icon ml-auto -mr-2 lg:hidden">
+      <IconX class="w-5 h-5" />
+    </button>
+  </div>
 
-    <nav class="flex items-center gap-1 overflow-x-auto">
-{{#each t in tabs}}
-      <a href="{{ t.href }}" class="{{ tabClass(t.href) }}">{{ t.label }}</a>
-{{/each}}
-    </nav>
+  <nav class="flex-1 overflow-y-auto px-3 pb-4">
+    <p class="nav-section">Workspace</p>
+    <div class="space-y-0.5">
+      <a href="/dashboard" class="{{ navClass('/dashboard') }}"><IconLayoutDashboard /> Overview</a>
+      <a href="/products" class="{{ navClass('/products') }}"><IconPackage /> Products</a>
+      <a href="/changelog" class="{{ navClass('/changelog') }}"><IconClipboardList /> Changelog</a>
+      <a href="/announcements" class="{{ navClass('/announcements') }}"><IconMegaphone /> Announcements</a>
+      <a href="/status" class="{{ navClass('/status') }}"><IconActivity /> Status</a>
+    </div>
 
-    <div class="ml-auto flex items-center gap-2 shrink-0">
-      <button
-        onclick="{{ Theme.toggle() }}"
-        aria-label="Toggle color theme"
-        class="w-8 h-8 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
-      >
+{{#if can("roles.manage") or can("audit.view")}}
+    <p class="nav-section">Administration</p>
+    <div class="space-y-0.5">
+{{#if can("roles.manage")}}
+      <a href="/admin/access" class="{{ navClass('/admin/access') }}"><IconKey /> Access</a>
+{{/if}}
+{{#if can("audit.view")}}
+      <a href="/admin/audit" class="{{ navClass('/admin/audit') }}"><IconHistory /> Audit log</a>
+{{/if}}
+    </div>
+{{/if}}
+  </nav>
+
+  <div class="border-t border-zinc-200 dark:border-zinc-800 p-3">
+    <a href="/account" title="Your account and two-factor sign-in" class="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+      <span class="avatar">{{ initials }}</span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ Auth.user.name }}</span>
+        <span class="block truncate text-xs text-zinc-500">{{ Auth.user.email }}</span>
+      </span>
+    </a>
+    <div class="mt-2 flex items-center gap-1">
+      <button onclick="{{ Theme.toggle() }}" aria-label="Toggle color theme" class="btn btn-ghost btn-sm flex-1 justify-start">
+{{#if Theme.mode is "dark"}}
+        <IconSun /> Light mode
+{{#else}}
+        <IconMoon /> Dark mode
+{{/if}}
+      </button>
+      <button onclick="{{ Auth.logout() }}" title="Sign out" aria-label="Sign out" class="btn btn-ghost btn-sm btn-icon">
+        <IconLogout />
+      </button>
+    </div>
+  </div>
+</aside>
+{{/if}}
+
+{{#if not Auth.user}}
+<header class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 h-16 flex items-center gap-3">
+    <a href="/" class="flex items-center gap-2.5 shrink-0">
+      <span class="brand-mark">A</span>
+      <span class="text-[15px] font-semibold tracking-tight">Ashmif Hub</span>
+    </a>
+    <div class="ml-auto flex items-center gap-2">
+      <button onclick="{{ Theme.toggle() }}" aria-label="Toggle color theme" class="btn btn-ghost btn-icon">
 {{#if Theme.mode is "dark"}}
         <IconSun class="w-[18px] h-[18px]" />
 {{#else}}
         <IconMoon class="w-[18px] h-[18px]" />
 {{/if}}
       </button>
-      <span class="hidden sm:inline text-sm text-slate-400 ml-1">{{ Auth.user.name }}</span>
-      <button onclick="{{ Auth.logout() }}" class="text-sm text-slate-300 border border-white/15 rounded-md px-3 py-1.5 hover:bg-white/5 transition-colors">Sign out</button>
+{{#if not isActive('/login')}}
+      <a href="/login" class="btn btn-primary btn-sm">Sign in</a>
+{{/if}}
     </div>
-
-  </div>
-</header>
-{{/if}}
-
-{{#if not Auth.user}}
-<header class="bg-slate-950 text-slate-100 border-b border-white/10">
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center">
-    <a href="/" class="flex items-center gap-2.5 shrink-0">
-      <span class="w-7 h-7 rounded-md bg-indigo-500 flex items-center justify-center">
-        <IconBolt class="w-4 h-4 text-white" />
-      </span>
-      <span class="font-semibold tracking-tight">Ashmif Hub</span>
-    </a>
-    <button
-      onclick="{{ Theme.toggle() }}"
-      aria-label="Toggle color theme"
-      class="ml-auto w-8 h-8 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
-    >
-{{#if Theme.mode is "dark"}}
-      <IconSun class="w-[18px] h-[18px]" />
-{{#else}}
-      <IconMoon class="w-[18px] h-[18px]" />
-{{/if}}
-    </button>
   </div>
 </header>
 {{/if}}

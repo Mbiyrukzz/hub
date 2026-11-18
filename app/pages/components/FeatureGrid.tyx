@@ -1,27 +1,36 @@
 component FeatureGrid
 
-state
-  features: [
-    { tag: "Changelog", badge: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300", title: "Write once, publish everywhere", body: "Draft, schedule or publish a release in Markdown. Every product that reads from the Hub shows it." },
-    { tag: "Status", badge: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", title: "A heartbeat every minute", body: "Products report in once a minute. No heartbeat for 3 minutes counts as down, and deploys and outages appear as events." },
-    { tag: "Products", badge: "bg-sky-500/10 text-sky-700 dark:text-sky-300", title: "One entry per site", body: "Each site that reads from the Hub is a product with its own slug, public API address and a reporting key." },
-    { tag: "Access", badge: "bg-amber-500/10 text-amber-700 dark:text-amber-300", title: "Admins only", body: "Only accounts listed in HUB_ADMINS with a verified email can open the Hub." }
-  ]
+import { IconClipboardList, IconActivity, IconPackage, IconKey } from "tylix-icons"
 
 template
-  <section class="border-t border-slate-200 dark:border-slate-800">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-      <h2 class="text-2xl font-semibold tracking-tight">Everything in one place</h2>
-      <p class="text-sm text-slate-500 mt-1">Releases, uptime and product keys for every site you run.</p>
+  <section class="border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-16">
+      <div class="max-w-2xl">
+        <h2 class="text-2xl font-semibold tracking-tight">Everything in one place</h2>
+        <p class="text-zinc-600 dark:text-zinc-400 mt-2">Releases, uptime and product keys for every site you run.</p>
+      </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-{{#each f in features}}
-        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5">
-          <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {{ f.badge }}">{{ f.tag }}</span>
-          <h3 class="text-sm font-semibold mt-3 mb-1">{{ f.title }}</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">{{ f.body }}</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px mt-10 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800">
+        <div class="bg-white dark:bg-zinc-900 p-6">
+          <div class="empty-icon"><IconClipboardList /></div>
+          <h3 class="text-sm font-semibold mb-1.5">Write once, publish everywhere</h3>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">Draft, schedule or publish a release in Markdown. Every product that reads from the Hub shows it.</p>
         </div>
-{{/each}}
+        <div class="bg-white dark:bg-zinc-900 p-6">
+          <div class="empty-icon"><IconActivity /></div>
+          <h3 class="text-sm font-semibold mb-1.5">A heartbeat every minute</h3>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">Products report in once a minute. No heartbeat for 3 minutes counts as down, and deploys and outages appear as events.</p>
+        </div>
+        <div class="bg-white dark:bg-zinc-900 p-6">
+          <div class="empty-icon"><IconPackage /></div>
+          <h3 class="text-sm font-semibold mb-1.5">One entry per site</h3>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">Each site that reads from the Hub is a product with its own slug, public API address and a reporting key.</p>
+        </div>
+        <div class="bg-white dark:bg-zinc-900 p-6">
+          <div class="empty-icon"><IconKey /></div>
+          <h3 class="text-sm font-semibold mb-1.5">Role-based access</h3>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">Viewers, editors, on-call and admins each see what their role allows. Verified emails only.</p>
+        </div>
       </div>
     </div>
   </section>
