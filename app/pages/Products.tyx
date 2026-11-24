@@ -319,7 +319,7 @@ template
 {{/if}}
 
           <label for="p-url" class="label mt-4">Website</label>
-          <input id="p-url" type="text" placeholder="https://deploy.ashmif.com" value="{{ fUrl }}" oninput="{{ setField('fUrl', event.target.value) }}" class="input" />
+          <input id="p-url" type="text" placeholder="https://flux.tylix.dev" value="{{ fUrl }}" oninput="{{ setField('fUrl', event.target.value) }}" class="input" />
 {{#if errors.website_url}}
           <p class="field-error">{{ errors.website_url }}</p>
 {{/if}}
