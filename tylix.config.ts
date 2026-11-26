@@ -1,5 +1,11 @@
 import { defineConfig } from "@tylix/shared";
 
+// The MySQL adapter saves ISO dates as UTC wall-clock text with no zone
+// ("2026-11-26 13:35:41"), and new Date() reads that text back as local
+// time. On a UTC+3 server every heartbeat then looked 3 hours old, so every
+// product showed as down. Every tylix command loads this file first.
+process.env.TZ = "UTC";
+
 export default defineConfig({
   // Installable app and offline support (@tylix/pwa). Tylix serves the
   // manifest and the service worker; icons and offline.html are in public/.
